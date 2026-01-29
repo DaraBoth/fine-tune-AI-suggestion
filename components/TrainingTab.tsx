@@ -3,13 +3,20 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, Database, FileStack, Calendar, BarChart3, Trash2, AlertTriangle } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, Database, FileStack, Calendar, BarChart3, Trash2, AlertTriangle, Eye, Download } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import ShimmerButton from '@/components/ui/shimmer-button'
 import NumberTicker from '@/components/ui/number-ticker'
 import { BorderBeam } from '@/components/ui/border-beam'
 import Sparkles from '@/components/ui/sparkles'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'success' | 'error'
@@ -41,6 +48,8 @@ export default function TrainingTab() {
   const [trainedFiles, setTrainedFiles] = useState<TrainedFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [deletingFile, setDeletingFile] = useState<string | null>(null)
+  const [viewingFile, setViewingFile] = useState<{ filename: string; content: string; metadata: any } | null>(null)
+  const [loadingView, setLoadingView] = useState(false)
 
   // Fetch training statistics
   const fetchStats = useCallback(async () => {
@@ -110,6 +119,56 @@ export default function TrainingTab() {
       setDeletingFile(null)
     }
   }, [fetchStats, fetchTrainedFiles])
+
+  // View file content
+  const handleViewFile = useCallback(async (filename: string) => {
+    setLoadingView(true)
+    try {
+      const response = await fetch(`/api/view-file?filename=${encodeURIComponent(filename)}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        setViewingFile({
+          filename: data.filename,
+          content: data.content,
+          metadata: data.metadata,
+        })
+      } else {
+        alert(`❌ Failed to load file: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to view file:', error)
+      alert('❌ Failed to load file content. Please try again.')
+    } finally {
+      setLoadingView(false)
+    }
+  }, [])
+
+  // Download file content
+  const handleDownloadFile = useCallback(async (filename: string) => {
+    try {
+      const response = await fetch(`/api/view-file?filename=${encodeURIComponent(filename)}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        // Create a blob and download
+        const blob = new Blob([data.content], { type: 'text/plain' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        alert(`❌ Failed to download file: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to download file:', error)
+      alert('❌ Failed to download file. Please try again.')
+    }
+  }, [])
 
   // Set up Supabase real-time subscription with fallback
   useEffect(() => {
@@ -468,7 +527,7 @@ export default function TrainingTab() {
                 <div className="flex-1">
                   <p className="font-medium text-foreground">Trained Files ({trainedFiles.length})</p>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    Manage your AI's memory - click trash to forget specific files
+                    View, download, or forget files to manage your AI's memory
                   </p>
                 </div>
               </div>
@@ -493,20 +552,41 @@ export default function TrainingTab() {
                           {file.chunkCount} chunk{file.chunkCount !== 1 ? 's' : ''} • {new Date(file.lastUpdated).toLocaleDateString()}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleForgetFile(file.filename)}
-                        disabled={deletingFile === file.filename}
-                        className="shrink-0 h-8 w-8 p-0 hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                        title="Forget this file"
-                      >
-                        {deletingFile === file.filename ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewFile(file.filename)}
+                          disabled={loadingView}
+                          className="shrink-0 h-8 w-8 p-0 hover:bg-blue-500/10 hover:text-blue-400 transition-colors"
+                          title="View file content"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadFile(file.filename)}
+                          className="shrink-0 h-8 w-8 p-0 hover:bg-green-500/10 hover:text-green-400 transition-colors"
+                          title="Download file"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleForgetFile(file.filename)}
+                          disabled={deletingFile === file.filename}
+                          className="shrink-0 h-8 w-8 p-0 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                          title="Forget this file"
+                        >
+                          {deletingFile === file.filename ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -524,6 +604,42 @@ export default function TrainingTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* View File Dialog */}
+      <Dialog open={viewingFile !== null} onOpenChange={(open) => !open && setViewingFile(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-400" />
+              {viewingFile?.filename}
+            </DialogTitle>
+            <DialogDescription>
+              Viewing trained file content • {viewingFile?.content.length.toLocaleString()} characters
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <pre className="text-sm text-foreground/90 whitespace-pre-wrap bg-black/20 p-4 rounded-lg border border-white/10">
+              {viewingFile?.content}
+            </pre>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-white/10">
+            <Button
+              variant="outline"
+              onClick={() => viewingFile && handleDownloadFile(viewingFile.filename)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => setViewingFile(null)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
