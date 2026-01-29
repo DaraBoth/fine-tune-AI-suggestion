@@ -32,15 +32,20 @@ export async function POST(request: NextRequest) {
     // Generate embedding for the input text
     const embedding = await generateEmbedding(text)
 
+    console.log(`[Phrase Suggestion] Query: "${text}"`)
+    console.log(`[Phrase Suggestion] Generated query embedding with ${embedding.length} dimensions`)
+
     // Query Supabase for similar chunks using the match_chunks function
-    const { data, error } = await supabase.rpc('match_chunks' as any, {
+    const { data, error }:{data: any, error: any} = await supabase.rpc('match_chunks' as any, {
       query_embedding: embedding,
-      match_threshold: 0.3,
+      match_threshold: 0.2, // Lowered threshold for better recall of trained data
       match_count: 5, // Reduced from 10 for faster response
     } as any)
 
-    console.log({data});
-    
+    console.log(`[Phrase Suggestion] Found ${data?.length || 0} matches from trained data`)
+    if (data && data.length > 0) {
+      console.log(`[Phrase Suggestion] Top match similarity: ${data[0].similarity}, content preview: ${data[0].content.substring(0, 100)}...`)
+    }
 
     if (error) {
       console.error('Error querying chunks:', error)
@@ -54,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // If no matches found, use OpenAI completion as fallback
     if (!matches || matches.length === 0) {
-      console.log('No trained data found, using OpenAI phrase suggestion fallback')
+      console.log('[Phrase Suggestion] No trained data found, using OpenAI phrase suggestion fallback')
       
       try {
         const completion = await generatePhraseSuggestion(text)

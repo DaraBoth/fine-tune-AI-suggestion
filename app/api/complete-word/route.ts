@@ -31,10 +31,13 @@ export async function POST(request: NextRequest) {
     // Generate embedding for the full context
     const embedding = await generateEmbedding(text)
 
+    console.log(`[Word Completion] Query: "${text}", Incomplete word: "${incompleteWord}"`)
+    console.log(`[Word Completion] Generated query embedding with ${embedding.length} dimensions`)
+
     // Query Supabase for similar chunks using the match_chunks function
     const { data, error } = await supabase.rpc('match_chunks' as any, {
       query_embedding: embedding,
-      match_threshold: 0.3,
+      match_threshold: 0.2, // Lowered threshold for better recall of trained data
       match_count: 5, // Reduced from 10 for faster response
     } as any)
 
@@ -48,9 +51,14 @@ export async function POST(request: NextRequest) {
 
     const matches = data as any[]
 
+    console.log(`[Word Completion] Found ${matches?.length || 0} matches from trained data`)
+    if (matches && matches.length > 0) {
+      console.log(`[Word Completion] Top match similarity: ${matches[0].similarity}, content preview: ${matches[0].content.substring(0, 100)}...`)
+    }
+
     // If no matches found, use OpenAI completion as fallback
     if (!matches || matches.length === 0) {
-      console.log('No trained data found, using OpenAI word completion fallback')
+      console.log('[Word Completion] No trained data found, using OpenAI word completion fallback')
       
       try {
         const completion = await generateWordCompletion(text, incompleteWord)

@@ -8,6 +8,12 @@ import pdf from 'pdf-parse'
  */
 function chunkText(text: string, chunkSize: number = 1000, overlap: number = 200): string[] {
   const chunks: string[] = []
+  
+  // For very short text (less than chunkSize), return it as a single chunk
+  if (text.trim().length <= chunkSize) {
+    return [text.trim()]
+  }
+  
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0)
   
   let currentChunk = ''
@@ -34,7 +40,8 @@ function chunkText(text: string, chunkSize: number = 1000, overlap: number = 200
     chunks.push(currentChunk + '.')
   }
   
-  return chunks.filter(chunk => chunk.trim().length > 10)
+  // Filter out very short chunks but keep anything with at least 3 characters
+  return chunks.filter(chunk => chunk.trim().length > 3)
 }
 
 export async function POST(request: NextRequest) {
@@ -83,6 +90,12 @@ export async function POST(request: NextRequest) {
     // Chunk the text
     const chunks = chunkText(extractedText, 1000, 200)
 
+    console.log(`Extracted text length: ${extractedText.length}`)
+    console.log(`Created ${chunks.length} chunks from text`)
+    if (chunks.length > 0) {
+      console.log(`First chunk preview: ${chunks[0].substring(0, 100)}...`)
+    }
+
     if (chunks.length === 0) {
       return NextResponse.json(
         { error: 'Failed to create text chunks' },
@@ -100,8 +113,10 @@ export async function POST(request: NextRequest) {
         // Generate embedding using OpenAI
         const embedding = await generateEmbedding(chunk)
         
+        console.log(`Generated embedding for chunk ${i + 1}/${chunks.length}, dimension: ${embedding.length}`)
+        
         // Insert into Supabase
-        const { data, error } = await supabase
+        const { data, error }:{data: any, error: any} = await supabase
           .from('chunks_table')
           .insert({
             content: chunk,
@@ -122,6 +137,7 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        console.log(`Successfully inserted chunk ${i + 1}/${chunks.length} with ID: ${data?.id}`)
         insertedChunks.push(data)
       } catch (error) {
         console.error('Error processing chunk:', error)

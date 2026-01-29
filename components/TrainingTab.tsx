@@ -3,12 +3,13 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, Database, FileStack, Calendar, BarChart3 } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, Database, FileStack, Calendar, BarChart3, Trash2, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import ShimmerButton from '@/components/ui/shimmer-button'
 import NumberTicker from '@/components/ui/number-ticker'
 import { BorderBeam } from '@/components/ui/border-beam'
 import Sparkles from '@/components/ui/sparkles'
+import { Button } from '@/components/ui/button'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'success' | 'error'
@@ -26,11 +27,20 @@ interface TrainingStats {
   lastTrainingFile: string | null
 }
 
+interface TrainedFile {
+  filename: string
+  chunkCount: number
+  lastUpdated: string
+}
+
 export default function TrainingTab() {
   const uploadStatus = useAppStore((state) => state.trainingUploadStatus)
   const setUploadStatus = useAppStore((state) => state.setTrainingUploadStatus)
   const [stats, setStats] = useState<TrainingStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  const [trainedFiles, setTrainedFiles] = useState<TrainedFile[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [deletingFile, setDeletingFile] = useState<string | null>(null)
 
   // Fetch training statistics
   const fetchStats = useCallback(async () => {
@@ -48,9 +58,63 @@ export default function TrainingTab() {
     }
   }, [])
 
+  // Fetch trained files list
+  const fetchTrainedFiles = useCallback(async () => {
+    setLoadingFiles(true)
+    try {
+      const response = await fetch('/api/forget')
+      if (response.ok) {
+        const data = await response.json()
+        setTrainedFiles(data.files || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch trained files:', error)
+    } finally {
+      setLoadingFiles(false)
+    }
+  }, [])
+
+  // Delete/forget a trained file
+  const handleForgetFile = useCallback(async (filename: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to forget "${filename}"?\n\nThis will permanently delete all training data for this file.`
+    )
+    
+    if (!confirmed) return
+
+    setDeletingFile(filename)
+    try {
+      const response = await fetch('/api/forget', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Refresh both stats and file list
+        await Promise.all([fetchStats(), fetchTrainedFiles()])
+        
+        // Show success message
+        alert(`✅ Successfully deleted ${data.deletedCount} chunks from "${filename}"`)
+      } else {
+        alert(`❌ Failed to delete file: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to forget file:', error)
+      alert('❌ Failed to delete training data. Please try again.')
+    } finally {
+      setDeletingFile(null)
+    }
+  }, [fetchStats, fetchTrainedFiles])
+
   // Set up Supabase real-time subscription with fallback
   useEffect(() => {
     fetchStats() // Initial fetch
+    fetchTrainedFiles() // Initial fetch of trained files
 
     try {
       // Try to use Supabase real-time subscription
@@ -67,8 +131,9 @@ export default function TrainingTab() {
           },
           (payload: any) => {
             console.log('Real-time update detected:', payload)
-            // Refresh stats when any change occurs
+            // Refresh both stats and file list when any change occurs
             fetchStats()
+            fetchTrainedFiles()
           }
         )
         .subscribe((status: string) => {
@@ -88,11 +153,12 @@ export default function TrainingTab() {
       // Fallback to polling if real-time fails
       const interval = setInterval(() => {
         fetchStats()
+        fetchTrainedFiles()
       }, 5000) // Poll every 5 seconds as fallback
 
       return () => clearInterval(interval)
     }
-  }, [fetchStats])
+  }, [fetchStats, fetchTrainedFiles])
 
   // Immediate refresh after successful upload
   useEffect(() => {
@@ -150,8 +216,8 @@ export default function TrainingTab() {
 
         if (response.ok) {
           successCount++
-          // Fetch stats after each successful file
-          await fetchStats()
+          // Fetch stats and file list after each successful file
+          await Promise.all([fetchStats(), fetchTrainedFiles()])
         } else {
           errorCount++
           errors.push(`${file.name}: ${data.error || 'Failed to process'}`)
@@ -395,22 +461,65 @@ export default function TrainingTab() {
           </div>
 
           {/* Trained Files List */}
-          {stats && stats.files.length > 0 && (
-            <div className="mt-6 rounded-lg border border-white/10 bg-white/5 p-4">
-              <div className="flex gap-3">
+          {trainedFiles.length > 0 && (
+            <div className="mt-6 rounded-lg border border-white/10 bg-white/5 p-4 sm:p-6">
+              <div className="flex items-center gap-3 mb-4">
                 <FileStack className="h-5 w-5 shrink-0 text-emerald-400" />
                 <div className="flex-1">
-                  <p className="font-medium text-foreground mb-2">Trained Files:</p>
-                  <div className="space-y-1">
-                    {stats.files.map((file, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <FileText className="h-4 w-4 text-emerald-400/70" />
-                        <span className="truncate">{file}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="font-medium text-foreground">Trained Files ({trainedFiles.length})</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                    Manage your AI's memory - click trash to forget specific files
+                  </p>
                 </div>
               </div>
+              
+              <div className="space-y-2">
+                {loadingFiles ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  trainedFiles.map((file, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors group"
+                    >
+                      <FileText className="h-4 w-4 shrink-0 text-emerald-400/70" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm text-foreground truncate font-medium">
+                          {file.filename}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {file.chunkCount} chunk{file.chunkCount !== 1 ? 's' : ''} • {new Date(file.lastUpdated).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleForgetFile(file.filename)}
+                        disabled={deletingFile === file.filename}
+                        className="shrink-0 h-8 w-8 p-0 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                        title="Forget this file"
+                      >
+                        {deletingFile === file.filename ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              {trainedFiles.length > 0 && !loadingFiles && (
+                <div className="mt-4 flex items-start gap-2 text-xs text-amber-500/80 bg-amber-500/5 p-3 rounded-lg border border-amber-500/20">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p>
+                    Deleting a file will permanently remove all its training data from the AI's memory. This action cannot be undone.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
