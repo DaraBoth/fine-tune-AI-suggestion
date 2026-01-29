@@ -18,6 +18,15 @@ export async function DELETE(request: NextRequest) {
 
     console.log(`[Forget] Attempting to delete chunks for file: ${filename}`)
 
+    // First, get the storage path before deleting chunks
+    const { data: chunks, error: fetchError } = await supabase
+      .from('chunks_table')
+      .select('metadata')
+      .eq('metadata->>filename', filename)
+      .limit(1)
+
+    const storagePath = (chunks as any)?.[0]?.metadata?.storage_path
+
     // Delete all chunks with matching filename in metadata
     const { data, error } = await supabase
       .from('chunks_table')
@@ -35,6 +44,21 @@ export async function DELETE(request: NextRequest) {
 
     const deletedCount = data?.length || 0
     console.log(`[Forget] Successfully deleted ${deletedCount} chunks for file: ${filename}`)
+
+    // Delete the original file from storage if it exists
+    if (storagePath) {
+      console.log(`[Forget] Deleting original file from storage: ${storagePath}`)
+      const { error: storageError } = await supabase.storage
+        .from('training-files')
+        .remove([storagePath])
+
+      if (storageError) {
+        console.error('[Forget] Error deleting file from storage:', storageError)
+        // Don't fail the request if storage deletion fails
+      } else {
+        console.log(`[Forget] Successfully deleted file from storage`)
+      }
+    }
 
     return NextResponse.json({
       success: true,

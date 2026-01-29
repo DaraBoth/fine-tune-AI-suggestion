@@ -147,12 +147,12 @@ export default function TrainingTab() {
   // Download file content
   const handleDownloadFile = useCallback(async (filename: string) => {
     try {
-      const response = await fetch(`/api/view-file?filename=${encodeURIComponent(filename)}`)
-      const data = await response.json()
+      // Download the original file from Supabase Storage
+      const response = await fetch(`/api/download-file?filename=${encodeURIComponent(filename)}`)
 
       if (response.ok) {
-        // Create a blob and download
-        const blob = new Blob([data.content], { type: 'text/plain' })
+        // Get the file as a blob
+        const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -162,6 +162,7 @@ export default function TrainingTab() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       } else {
+        const data = await response.json()
         alert(`❌ Failed to download file: ${data.error}`)
       }
     } catch (error) {

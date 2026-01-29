@@ -56,13 +56,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Upload original file to Supabase Storage first
+    const fileBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(fileBuffer)
+    
+    const timestamp = new Date().getTime()
+    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const storageFilename = `${timestamp}-${sanitizedFilename}`
+    
+    console.log(`Uploading original file to storage: ${storageFilename}`)
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('training-files')
+      .upload(storageFilename, buffer, {
+        contentType: file.type,
+        cacheControl: '3600',
+        upsert: false,
+      })
+    
+    if (uploadError) {
+      console.error('Error uploading file to storage:', uploadError)
+      // Continue processing even if upload fails, but log the error
+    } else {
+      console.log('File uploaded successfully to storage:', uploadData.path)
+    }
+
     let extractedText = ''
 
     // Handle PDF files
     if (file.type === 'application/pdf') {
-      // Convert file to buffer
-      const arrayBuffer = await file.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
+      // Use the already loaded buffer
       
       // Extract text from PDF
       const data = await pdf(buffer)
@@ -123,6 +146,9 @@ export async function POST(request: NextRequest) {
             embedding: embedding,
             metadata: {
               filename: file.name,
+              storage_path: uploadData?.path || null,
+              file_type: file.type,
+              file_size: file.size,
               chunk_index: i,
               total_chunks: chunks.length,
               characters: chunk.length,
