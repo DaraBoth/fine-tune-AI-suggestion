@@ -174,6 +174,12 @@ function findWordCompletion(text: string, incompleteWord: string, matchedContent
   for (const word of words) {
     const cleanWord = word.replace(/[.,!?;:'"]/g, '')
     
+    // Skip if the word is exactly the same as incomplete word (nothing to complete)
+    if (cleanWord.toLowerCase() === incompleteWord.toLowerCase() || 
+        cleanWord === incompleteWord) {
+      continue
+    }
+    
     // For ASCII text, use case-insensitive matching
     if (/^[a-zA-Z]+$/.test(incompleteWord)) {
       if (cleanWord.toLowerCase().startsWith(incompleteWord.toLowerCase()) && 
@@ -192,6 +198,13 @@ function findWordCompletion(text: string, incompleteWord: string, matchedContent
   }
   
   // If no exact match found in words, look for the continuation in content
+  // But only if the matched content is not just the incomplete word itself
+  const trimmedContent = matchedContent.trim()
+  if (trimmedContent.toLowerCase() === incompleteWord.toLowerCase() || 
+      trimmedContent === incompleteWord) {
+    return '' // Nothing to complete
+  }
+  
   const contentLower = matchedContent.toLowerCase()
   const incompleteLower = incompleteWord.toLowerCase()
   const index = contentLower.indexOf(incompleteLower)
@@ -200,7 +213,7 @@ function findWordCompletion(text: string, incompleteWord: string, matchedContent
     // Find the next word boundary
     const afterIncomplete = matchedContent.substring(index + incompleteWord.length)
     const nextWordMatch = afterIncomplete.match(/^\S+/)
-    if (nextWordMatch) {
+    if (nextWordMatch && nextWordMatch[0].length > 0) {
       // Return just the completion part
       return nextWordMatch[0]
     }

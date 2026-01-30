@@ -49,7 +49,7 @@ export async function generateCompletion(userInput: string): Promise<string> {
 
 /**
  * Complete an incomplete word that user is typing
- * Example: "busine" -> "business"
+ * Example: "busine" -> "ss" (not "business")
  */
 export async function generateWordCompletion(userInput: string, incompleteWord: string): Promise<string> {
   const response = await openai.chat.completions.create({
@@ -57,11 +57,17 @@ export async function generateWordCompletion(userInput: string, incompleteWord: 
     messages: [
       {
         role: 'system',
-        content: 'You are a word completion assistant. Your ONLY job is to complete incomplete words. DO NOT respond conversationally. DO NOT greet or chat. If the user types "Hello" or greetings, just return the complete word. Return ONLY the completed word, nothing else.',
+        content: `You are a word completion assistant. Return ONLY the missing characters to complete the word, NOT the full word.
+
+Examples:
+- User typed "hel" → Return "lo" (not "hello")
+- User typed "busine" → Return "ss" (not "business")
+- User typed "수정" → Return "" if complete
+- Return ONLY completion characters, NO full words, NO explanations`,
       },
       {
         role: 'user',
-        content: `Context: "${userInput}"\nIncomplete word: "${incompleteWord}"\n\nComplete this word. Return ONLY the completed word, no explanations or greetings.`,
+        content: `Context: "${userInput}"\nIncomplete word: "${incompleteWord}"\n\nReturn ONLY the missing characters to complete "${incompleteWord}". Do not return the full word.`,
       },
     ],
     max_tokens: 20,
@@ -70,7 +76,15 @@ export async function generateWordCompletion(userInput: string, incompleteWord: 
 
   const completion = response.choices[0]?.message?.content?.trim() || ''
   // Remove quotes if AI added them
-  return completion.replace(/['"]/g, '')
+  const cleaned = completion.replace(/['"]/g, '')
+  
+  // If AI returned the full word instead of just the completion, extract the completion part
+  if (cleaned.toLowerCase().startsWith(incompleteWord.toLowerCase()) || 
+      cleaned.startsWith(incompleteWord)) {
+    return cleaned.substring(incompleteWord.length)
+  }
+  
+  return cleaned
 }
 
 /**
@@ -203,29 +217,38 @@ export async function generateSmartWordCompletion(
     messages: [
       {
         role: 'system',
-        content: `You are a word completion assistant. Complete incomplete words ONLY. DO NOT chat, greet, or respond conversationally.
+        content: `You are a word completion assistant. Return ONLY the missing part to complete the word, NOT the full word.
 
 Rules:
-1. Return ONLY the completed word
-2. If context shows the word, use that
-3. Match the language (English, Korean, Chinese, etc.)
-4. DO NOT add explanations, greetings, or extra text
-5. Just ONE word`,
+1. User typed: "hel" - You return: "lo" (not "hello")
+2. User typed: "수정" - You return: "" if complete, or missing characters if incomplete
+3. Return ONLY the completion characters (what comes after the incomplete word)
+4. If the word is already complete, return empty
+5. Match the language (English, Korean, Chinese, etc.)
+6. NO explanations, NO full words, ONLY the completion part`,
       },
       {
         role: 'user',
         content: `Full text: "${userInput}"
-Incomplete word: "${incompleteWord}"
+Incomplete word to complete: "${incompleteWord}"
 
 Context from knowledge base:
 ${contextText}
 
-Complete "${incompleteWord}". Return only the word.`,
+Return ONLY the missing characters to complete "${incompleteWord}". Do not return the full word.`,
       },
     ],
     max_tokens: 20,
     temperature: 0.1,
   })
 
-  return response.choices[0]?.message?.content?.trim() || incompleteWord
+  const completion = response.choices[0]?.message?.content?.trim() || ''
+  
+  // If AI returned the full word instead of just the completion, extract the completion part
+  if (completion.toLowerCase().startsWith(incompleteWord.toLowerCase()) || 
+      completion.startsWith(incompleteWord)) {
+    return completion.substring(incompleteWord.length)
+  }
+  
+  return completion
 }
