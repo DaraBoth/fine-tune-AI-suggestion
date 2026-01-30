@@ -103,6 +103,14 @@ module.exports = {
             scale: "var(--sparkles-max-size)",
           },
         },
+        meteor: {
+          "0%": { transform: "rotate(215deg) translateX(0)", opacity: "1" },
+          "70%": { opacity: "1" },
+          "100%": {
+            transform: "rotate(215deg) translateX(-500px)",
+            opacity: "0",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -113,6 +121,7 @@ module.exports = {
         "spin-around": "spin-around calc(var(--speed) * 2) infinite linear",
         sparkle:
           "sparkle var(--sparkles-opacity-speed) ease-in-out calc(var(--i) * -0.3s) infinite alternate",
+        meteor: "meteor 5s linear infinite",
       },
     },
   },

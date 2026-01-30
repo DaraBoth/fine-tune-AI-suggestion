@@ -3,13 +3,19 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, Database, FileStack, Calendar, BarChart3, Trash2, AlertTriangle, Eye, Download } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, Database, FileStack, Calendar, BarChart3, Trash2, AlertTriangle, Eye, Download, BrainCircuit, File as FileIcon } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import ShimmerButton from '@/components/ui/shimmer-button'
 import NumberTicker from '@/components/ui/number-ticker'
 import { BorderBeam } from '@/components/ui/border-beam'
 import Sparkles from '@/components/ui/sparkles'
 import { Button } from '@/components/ui/button'
+import { AnimatedBeam } from '@/components/ui/animated-beam'
+import { Meteors } from '@/components/ui/meteors'
+import { Particles } from '@/components/ui/particles'
+import { Confetti } from '@/components/ui/confetti'
+import { useRef } from 'react'
+import Image from 'next/image'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +39,12 @@ interface TrainedFile {
   lastUpdated: string
 }
 
+interface ActiveFile {
+  id: string
+  name: string
+  status: 'pending' | 'processing' | 'completed' | 'error'
+}
+
 export default function TrainingTab() {
   const uploadStatus = useAppStore((state) => state.trainingUploadStatus)
   const setUploadStatus = useAppStore((state) => state.setTrainingUploadStatus)
@@ -45,6 +57,13 @@ export default function TrainingTab() {
   const [loadingView, setLoadingView] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   const [chunkStrategy, setChunkStrategy] = useState<'word' | 'sentence' | 'smart'>('smart')
+  const [activeFiles, setActiveFiles] = useState<ActiveFile[]>([])
+
+  // Refs for Animated Beam
+  const containerRef = useRef<HTMLDivElement>(null)
+  const brainRef = useRef<HTMLDivElement>(null)
+  const fileRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({})
+  const confettiRef = useRef<any>(null)
 
   // Fetch training statistics
   const fetchStats = useCallback(async () => {
@@ -79,7 +98,7 @@ export default function TrainingTab() {
   const handleForgetFile = useCallback(async (filename: string) => {
     // Ask for admin password
     const password = prompt('⚠️ Security Check\n\nEnter admin password to delete this file:')
-    
+
     if (!password) {
       return // User cancelled
     }
@@ -91,7 +110,7 @@ export default function TrainingTab() {
     // Verify password first
     try {
       const isValid = await verifyAdminPassword(password)
-      
+
       if (!isValid) {
         toast.error('Access Denied', {
           id: toastId,
@@ -116,16 +135,16 @@ export default function TrainingTab() {
     setDeletingFile(filename)
     try {
       await deleteTrainingFile(filename)
-      
+
       // Refresh both stats and file list
       await Promise.all([fetchStats(), fetchTrainedFiles()])
-      
+
       // Update toast to success
       toast.success(`Deleted ${filename}`, {
         id: toastId,
         description: `Successfully removed training data from AI memory`,
       })
-      
+
       // Remove from selected files if it was selected
       setSelectedFiles(prev => {
         const newSet = new Set(prev)
@@ -150,12 +169,12 @@ export default function TrainingTab() {
     const confirmed = window.confirm(
       `Are you sure you want to delete ${selectedFiles.size} file(s)?\n\nThis will permanently remove all training data for these files.`
     )
-    
+
     if (!confirmed) return
 
     // Ask for admin password once for bulk deletion
     const password = prompt('⚠️ Security Check\n\nEnter admin password to delete selected files:')
-    
+
     if (!password) {
       return // User cancelled
     }
@@ -167,7 +186,7 @@ export default function TrainingTab() {
     // Verify password first
     try {
       const isValid = await verifyAdminPassword(password)
-      
+
       if (!isValid) {
         toast.error('Access Denied', {
           id: toastId,
@@ -175,7 +194,7 @@ export default function TrainingTab() {
         })
         return
       }
-      
+
       // Close verification toast
       toast.dismiss(toastId)
     } catch (error) {
@@ -188,19 +207,19 @@ export default function TrainingTab() {
 
     // Delete each file with its own toast (skip password prompt since already verified)
     const filesToDelete = Array.from(selectedFiles)
-    
+
     for (const filename of filesToDelete) {
       const deleteToastId = toast.loading(`Deleting ${filename}...`, {
         description: 'Removing training data from AI memory',
       })
-      
+
       setDeletingFile(filename)
       try {
         await deleteTrainingFile(filename)
-        
+
         // Refresh stats
         await Promise.all([fetchStats(), fetchTrainedFiles()])
-        
+
         toast.success(`Deleted ${filename}`, {
           id: deleteToastId,
           description: `Successfully removed training data`,
@@ -214,7 +233,7 @@ export default function TrainingTab() {
         setDeletingFile(null)
       }
     }
-    
+
     // Clear selection after all deletions
     setSelectedFiles(new Set())
   }, [selectedFiles, fetchStats, fetchTrainedFiles])
@@ -245,7 +264,7 @@ export default function TrainingTab() {
   const handleViewFile = useCallback(async (filename: string) => {
     // Ask for admin password
     const password = prompt('🔒 Security Check\n\nEnter admin password to view this file:')
-    
+
     if (!password) {
       return // User cancelled
     }
@@ -257,7 +276,7 @@ export default function TrainingTab() {
     // Verify password first
     try {
       const isValid = await verifyAdminPassword(password)
-      
+
       if (!isValid) {
         toast.error('Access Denied', {
           id: toastId,
@@ -265,7 +284,7 @@ export default function TrainingTab() {
         })
         return
       }
-      
+
       // Close verification toast
       toast.dismiss(toastId)
     } catch (error) {
@@ -285,7 +304,7 @@ export default function TrainingTab() {
         content: data.content,
         metadata: {},
       })
-      
+
       toast.success('File Loaded', {
         description: `Viewing ${filename}`,
       })
@@ -303,7 +322,7 @@ export default function TrainingTab() {
   const handleDownloadFile = useCallback(async (filename: string) => {
     // Ask for admin password
     const password = prompt('🔒 Security Check\n\nEnter admin password to download this file:')
-    
+
     if (!password) {
       return // User cancelled
     }
@@ -315,7 +334,7 @@ export default function TrainingTab() {
     // Verify password first
     try {
       const isValid = await verifyAdminPassword(password)
-      
+
       if (!isValid) {
         toast.error('Access Denied', {
           id: toastId,
@@ -323,7 +342,7 @@ export default function TrainingTab() {
         })
         return
       }
-      
+
       // Update toast to show download progress
       toast.loading(`Downloading ${filename}...`, {
         id: toastId,
@@ -340,7 +359,7 @@ export default function TrainingTab() {
     try {
       const blob = await downloadFile(filename)
       triggerFileDownload(blob, filename)
-      
+
       toast.success('Download Started', {
         id: toastId,
         description: `${filename} is being downloaded`,
@@ -378,7 +397,7 @@ export default function TrainingTab() {
 
     // Filter only PDF files
     const pdfFiles = acceptedFiles.filter(file => file.type === 'application/pdf')
-    
+
     if (pdfFiles.length === 0) {
       setUploadStatus({
         status: 'error',
@@ -400,8 +419,26 @@ export default function TrainingTab() {
     const errors: string[] = []
 
     // Process files one by one
+    const initialActiveFiles = pdfFiles.map(f => ({
+      id: Math.random().toString(36).substring(7),
+      name: f.name,
+      status: 'pending' as const
+    }))
+    setActiveFiles(initialActiveFiles)
+
+    // Initialize refs for each file
+    initialActiveFiles.forEach(af => {
+      fileRefs.current[af.id] = { current: null }
+    })
+
     for (let i = 0; i < pdfFiles.length; i++) {
       const file = pdfFiles[i]
+      const activeFile = initialActiveFiles[i]
+
+      // Update active file status
+      setActiveFiles(prev => prev.map(af =>
+        af.id === activeFile.id ? { ...af, status: 'processing' } : af
+      ))
 
       setUploadStatus({
         status: 'uploading',
@@ -414,12 +451,15 @@ export default function TrainingTab() {
 
         // Check if it was a partial upload (timeout)
         if (data.partial) {
+          setActiveFiles(prev => prev.map(af =>
+            af.id === activeFile.id ? { ...af, status: 'error' } : af
+          ))
           setUploadStatus({
             status: 'success',
             message: `⚠️ Partial upload for ${file.name}: Processed ${data.processed}/${data.total} chunks (timeout limit reached). Re-upload the same file to process remaining ${data.remaining} chunks.`,
             chunks: data.chunks,
           })
-          
+
           // Show toast notification for partial upload
           toast.warning('Partial Upload Completed', {
             description: `${file.name} is too large. Processed ${data.processed}/${data.total} chunks. Please re-upload to continue.`,
@@ -427,20 +467,26 @@ export default function TrainingTab() {
           })
         } else {
           successCount++
-          
+          setActiveFiles(prev => prev.map(af =>
+            af.id === activeFile.id ? { ...af, status: 'completed' } : af
+          ))
+
           // Show success toast with processing details
           toast.success('File Trained Successfully', {
             description: `${file.name}: ${data.chunks} chunks processed in ${Math.round((data.processingTime || 0) / 1000)}s`,
           })
         }
-        
+
         // Fetch stats and file list after each file
         await Promise.all([fetchStats(), fetchTrainedFiles()])
       } catch (error: any) {
         errorCount++
+        setActiveFiles(prev => prev.map(af =>
+          af.id === activeFile.id ? { ...af, status: 'error' } : af
+        ))
         errors.push(`${file.name}: ${error.message || 'Failed to process'}`)
         console.error(`Error processing ${file.name}:`, error)
-        
+
         // Show error toast
         toast.error('Training Failed', {
           description: `${file.name}: ${error.message || 'Unknown error'}`,
@@ -453,6 +499,7 @@ export default function TrainingTab() {
 
     // Set final status
     if (successCount === pdfFiles.length) {
+      confettiRef.current?.fire()
       setUploadStatus({
         status: 'success',
         message: `Successfully processed all ${successCount} file(s)`,
@@ -470,7 +517,7 @@ export default function TrainingTab() {
         message: `All files failed to process: ${errors.join(', ')}`,
       })
     }
-  }, [fetchStats, setUploadStatus])
+  }, [fetchStats, setUploadStatus, chunkStrategy, fetchTrainedFiles])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -486,6 +533,8 @@ export default function TrainingTab() {
       status: 'idle',
       message: '',
     })
+    setActiveFiles([])
+    fileRefs.current = {}
   }
 
   return (
@@ -545,14 +594,14 @@ export default function TrainingTab() {
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm text-muted-foreground">Last Training</p>
                   <p className="text-xs sm:text-sm font-medium text-purple-400 truncate">
-                    {stats.lastTrainingDate 
+                    {stats.lastTrainingDate
                       ? new Date(stats.lastTrainingDate).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
                       : 'N/A'
                     }
                   </p>
@@ -594,43 +643,40 @@ export default function TrainingTab() {
                 type="button"
                 onClick={() => setChunkStrategy('word')}
                 disabled={uploadStatus.status === 'uploading'}
-                className={`p-3 rounded-lg border-2 transition-all text-left ${
-                  chunkStrategy === 'word'
+                className={`p-3 rounded-lg border-2 transition-all text-left ${chunkStrategy === 'word'
                     ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/50'
                     : 'border-white/20 hover:border-white/40 hover:bg-white/5'
-                } ${uploadStatus.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  } ${uploadStatus.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="font-medium text-white text-sm">Word by Word</div>
                 <div className="text-xs text-white/60 mt-1">
                   Extract individual words from the text
                 </div>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setChunkStrategy('sentence')}
                 disabled={uploadStatus.status === 'uploading'}
-                className={`p-3 rounded-lg border-2 transition-all text-left ${
-                  chunkStrategy === 'sentence'
+                className={`p-3 rounded-lg border-2 transition-all text-left ${chunkStrategy === 'sentence'
                     ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/50'
                     : 'border-white/20 hover:border-white/40 hover:bg-white/5'
-                } ${uploadStatus.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  } ${uploadStatus.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="font-medium text-white text-sm">Sentence by Sentence</div>
                 <div className="text-xs text-white/60 mt-1">
                   Extract complete sentences (., !, ?)
                 </div>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setChunkStrategy('smart')}
                 disabled={uploadStatus.status === 'uploading'}
-                className={`p-3 rounded-lg border-2 transition-all text-left ${
-                  chunkStrategy === 'smart'
+                className={`p-3 rounded-lg border-2 transition-all text-left ${chunkStrategy === 'smart'
                     ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/50'
                     : 'border-white/20 hover:border-white/40 hover:bg-white/5'
-                } ${uploadStatus.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  } ${uploadStatus.status === 'uploading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="font-medium text-white text-sm">Smart Mode ⭐</div>
                 <div className="text-xs text-white/60 mt-1">
@@ -643,20 +689,29 @@ export default function TrainingTab() {
           <div
             {...getRootProps()}
             className={`
-              relative rounded-lg border-2 border-dashed p-6 sm:p-12 text-center transition-all
-              ${
-                isDragActive
-                  ? 'border-primary bg-primary/10'
-                  : 'border-white/20 hover:border-white/40 hover:bg-white/5'
+              relative rounded-lg border-2 border-dashed p-6 sm:p-12 text-center transition-all min-h-[400px] flex flex-col items-center justify-center overflow-hidden
+              ${isDragActive
+                ? 'border-primary bg-primary/10'
+                : 'border-white/20 hover:border-white/40 hover:bg-white/5'
               }
-              ${uploadStatus.status === 'uploading' ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              ${uploadStatus.status === 'uploading' ? 'pointer-events-none' : 'cursor-pointer'}
             `}
           >
+            <Confetti ref={confettiRef} manualstart />
+            <Particles className="absolute inset-0 z-0" refresh={uploadStatus.status === 'uploading'} />
+
+            {uploadStatus.status === 'uploading' && <Meteors number={15} />}
+
             <input {...getInputProps()} />
-            
+
             {uploadStatus.status === 'idle' && (
-              <div className="space-y-3 sm:space-y-4">
-                <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground" />
+              <div className="space-y-3 sm:space-y-4 z-10">
+                <div className="relative inline-block mb-4">
+                  <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
+                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 glass-morphism animate-float">
+                    <Upload className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400" />
+                  </div>
+                </div>
                 <div>
                   <p className="text-sm sm:text-lg font-medium">
                     {isDragActive ? 'Drop your PDF files here' : 'Drop PDF files here or click to browse'}
@@ -669,47 +724,145 @@ export default function TrainingTab() {
             )}
 
             {uploadStatus.status === 'uploading' && (
-              <div className="space-y-3 sm:space-y-4">
-                <Loader2 className="mx-auto h-8 w-8 sm:h-12 sm:w-12 animate-spin text-primary" />
-                <div>
-                  <p className="text-sm sm:text-lg font-medium">{uploadStatus.message}</p>
-                  <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-muted-foreground">
-                    Please wait... Do not close or refresh this page
-                  </p>
+              <div ref={containerRef} className="relative w-full h-full min-h-[300px] flex items-center justify-center z-10">
+                {/* Central AI Brain Node */}
+                <div
+                  ref={brainRef}
+                  className="z-20 relative flex h-24 w-24 sm:h-32 sm:w-32 items-center justify-center rounded-full border-2 border-primary/50 bg-black glass-morphism shadow-[0_0_50px_-12px_rgba(59,130,246,0.5)]"
+                >
+                  <div className="absolute inset-0 rounded-full animate-pulse bg-primary/10" />
+                  <Image src="/icon.png" alt="AI Brain" width={64} height={64} className="relative z-30 h-12 w-12 sm:h-16 sm:w-16 animate-pulse" />
+                </div>
+
+                {/* Dynamical File Nodes */}
+                <div className="absolute inset-0 flex items-center justify-around pointer-events-none">
+                  {/* Left Side Files */}
+                  <div className="flex flex-col gap-8 items-start ml-2 sm:ml-8">
+                    {activeFiles.filter((_, i) => i % 2 === 0).map((af) => (
+                      <div
+                        key={af.id}
+                        ref={(el) => { if (el) fileRefs.current[af.id] = { current: el } as any }}
+                        className={`flex flex-col items-center gap-2 transition-all duration-500 scale-90 sm:scale-100 ${af.status === 'completed' ? 'opacity-40 grayscale-[0.5]' : 'opacity-100'
+                          }`}
+                      >
+                        <div className={`p-3 rounded-xl border border-white/10 glass-morphism shadow-xl relative ${af.status === 'processing' ? 'border-blue-500/50 scale-110' : ''
+                          }`}>
+                          {af.status === 'processing' && <div className="absolute inset-0 rounded-xl animate-ping border border-blue-500/30" />}
+                          <FileIcon className={`h-6 w-6 sm:h-8 sm:w-8 ${af.status === 'processing' ? 'text-blue-400 animate-pulse' :
+                              af.status === 'completed' ? 'text-emerald-400' :
+                                af.status === 'error' ? 'text-red-400' : 'text-white/60'
+                            }`} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-white/50 max-w-[80px] truncate">{af.name}</span>
+
+                        {af.status === 'processing' && (
+                          <AnimatedBeam
+                            containerRef={containerRef}
+                            fromRef={fileRefs.current[af.id]}
+                            toRef={brainRef}
+                            pathColor="#3b82f6"
+                            pathWidth={3}
+                            gradientStartColor="#3b82f6"
+                            gradientStopColor="#8b5cf6"
+                            curvature={20}
+                            duration={2}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Right Side Files */}
+                  <div className="flex flex-col gap-8 items-end mr-2 sm:mr-8">
+                    {activeFiles.filter((_, i) => i % 2 !== 0).map((af) => (
+                      <div
+                        key={af.id}
+                        ref={(el) => { if (el) fileRefs.current[af.id] = { current: el } as any }}
+                        className={`flex flex-col items-center gap-2 transition-all duration-500 scale-90 sm:scale-100 ${af.status === 'completed' ? 'opacity-40 grayscale-[0.5]' : 'opacity-100'
+                          }`}
+                      >
+                        <div className={`p-3 rounded-xl border border-white/10 glass-morphism shadow-xl relative ${af.status === 'processing' ? 'border-blue-500/50 scale-110' : ''
+                          }`}>
+                          {af.status === 'processing' && <div className="absolute inset-0 rounded-xl animate-ping border border-blue-500/30" />}
+                          <FileIcon className={`h-6 w-6 sm:h-8 sm:w-8 ${af.status === 'processing' ? 'text-blue-400 animate-pulse' :
+                              af.status === 'completed' ? 'text-emerald-400' :
+                                af.status === 'error' ? 'text-red-400' : 'text-white/60'
+                            }`} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-white/50 max-w-[80px] truncate">{af.name}</span>
+
+                        {af.status === 'processing' && (
+                          <AnimatedBeam
+                            containerRef={containerRef}
+                            fromRef={fileRefs.current[af.id]}
+                            toRef={brainRef}
+                            reverse
+                            pathColor="#3b82f6"
+                            pathWidth={3}
+                            gradientStartColor="#8b5cf6"
+                            gradientStopColor="#3b82f6"
+                            curvature={-20}
+                            duration={2}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="absolute bottom-4 left-0 right-0 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <p className="text-xs sm:text-sm font-medium text-white/70 italic">{uploadStatus.message}</p>
+                  </div>
                 </div>
               </div>
             )}
 
             {uploadStatus.status === 'success' && (
-              <div className="space-y-4">
-                <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" />
+              <div className="space-y-4 z-10">
+                <div className="relative inline-block mb-4">
+                  <div className="absolute inset-0 bg-green-500/20 blur-2xl rounded-full" />
+                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-white/5 rounded-2xl flex items-center justify-center border border-green-500/20 glass-morphism">
+                    <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-500" />
+                  </div>
+                </div>
                 <div>
-                  <p className="text-lg font-medium text-green-500">Upload Successful!</p>
+                  <p className="text-lg font-medium text-green-500">Training Complete!</p>
                   <p className="mt-2 text-sm text-muted-foreground">{uploadStatus.message}</p>
                   {uploadStatus.chunks && (
-                    <p className="mt-1 text-sm font-medium text-primary">
-                      {uploadStatus.chunks} chunks processed
-                    </p>
+                    <div className="mt-3 px-4 py-1 rounded-full bg-primary/10 border border-primary/20 inline-block">
+                      <p className="text-xs font-semibold text-primary">
+                        {uploadStatus.chunks} Document{uploadStatus.chunks !== 1 ? 's' : ''} Synced
+                      </p>
+                    </div>
                   )}
                 </div>
-                <ShimmerButton 
-                  onClick={resetUpload} 
-                  className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
-                >
-                  Upload Another PDF
-                </ShimmerButton>
+                <div className="flex gap-3 justify-center">
+                  <ShimmerButton
+                    onClick={resetUpload}
+                    className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                  >
+                    Train More Data
+                  </ShimmerButton>
+                </div>
               </div>
             )}
 
             {uploadStatus.status === 'error' && (
-              <div className="space-y-4">
-                <XCircle className="mx-auto h-12 w-12 text-red-500" />
-                <div>
-                  <p className="text-lg font-medium text-red-500">Upload Failed</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{uploadStatus.message}</p>
+              <div className="space-y-4 z-10">
+                <div className="relative inline-block mb-4">
+                  <div className="absolute inset-0 bg-red-500/20 blur-2xl rounded-full" />
+                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-white/5 rounded-2xl flex items-center justify-center border border-red-500/20 glass-morphism">
+                    <XCircle className="h-10 w-10 sm:h-12 sm:w-12 text-red-500" />
+                  </div>
                 </div>
-                <ShimmerButton 
-                  onClick={resetUpload} 
+                <div>
+                  <p className="text-lg font-medium text-red-500">Training Failed</p>
+                  <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">{uploadStatus.message}</p>
+                </div>
+                <ShimmerButton
+                  onClick={resetUpload}
                   className="mt-4 bg-gradient-to-r from-orange-600 to-red-600 text-white"
                 >
                   Try Again
@@ -770,7 +923,7 @@ export default function TrainingTab() {
                   </div>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 {loadingFiles ? (
                   <div className="flex items-center justify-center py-8">
@@ -778,8 +931,8 @@ export default function TrainingTab() {
                   </div>
                 ) : (
                   trainedFiles.map((file, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors group"
                     >
                       <input
@@ -836,7 +989,7 @@ export default function TrainingTab() {
                   ))
                 )}
               </div>
-              
+
               {trainedFiles.length > 0 && !loadingFiles && (
                 <div className="mt-4 flex items-start gap-2 text-xs text-amber-500/80 bg-amber-500/5 p-3 rounded-lg border border-amber-500/20">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />

@@ -8,6 +8,10 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "TypeFlow AI - Intelligent Autocomplete with RAG",
   description: "AI-powered autocomplete featuring RAG architecture, real-time analytics, and stunning Magic UI components. Train with PDFs and experience smart word completion and phrase suggestions.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

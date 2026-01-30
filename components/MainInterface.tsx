@@ -4,43 +4,60 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ChatInput from '@/components/ChatInput'
 import ChatInterface from '@/components/ChatInterface'
 import TrainingTab from '@/components/TrainingTab'
-import { MessageSquare, BookOpen, MessagesSquare, Github, Coffee, Heart } from 'lucide-react'
+import Image from 'next/image'
+import { MessageSquare, BookOpen, MessagesSquare, Github, Coffee, Heart, Sparkles as SparklesIcon } from 'lucide-react'
 
 export default function MainInterface() {
   return (
-    <div className="container mx-auto max-w-4xl px-3 sm:px-4 py-6 sm:py-12">
-      {/* Header */}
-      <div className="mb-8 sm:mb-12 text-center">
-        <h1 className="mb-3 sm:mb-4 text-2xl sm:text-4xl font-bold tracking-tight text-white">
-          ✨ Smart AI Chat Input
+    <div className="container mx-auto max-w-4xl px-3 sm:px-4 py-6 sm:py-16">
+      {/* Premium Header */}
+      <div className="mb-12 sm:mb-20 text-center relative">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none rounded-full" />
+
+        <div className="relative inline-block mb-6 animate-float">
+          <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 via-purple-500 to-teal-500 blur-2xl opacity-20" />
+          <Image
+            src="/icon.png"
+            alt="TypeFlow AI Logo"
+            width={100}
+            height={100}
+            className="relative mx-auto h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border border-white/20 shadow-2xl glass-morphism p-1"
+          />
+        </div>
+
+        <h1 className="mb-4 text-3xl sm:text-6xl font-extrabold tracking-tight">
+          <span className="text-white">TypeFlow</span>
+          <span className="text-gradient"> AI</span>
         </h1>
-        <p className="text-sm sm:text-lg text-white/60 px-2">
-          Train your AI with PDFs, get smart suggestions, and chat with your knowledge base
+
+        <p className="max-w-2xl mx-auto text-base sm:text-xl text-white/50 px-2 leading-relaxed">
+          The ultimate intelligent autocomplete experience.
+          <span className="text-white/80"> Train, chat, and generate</span> with your custom data using advanced RAG architecture.
         </p>
-        
-        {/* Links Section */}
-        <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+
+        {/* Quick Links */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <a
             href="https://github.com/DaraBoth/fine-tune-AI-suggestion"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-xl transition-all hover:border-white/20 hover:bg-white/10"
+            className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 backdrop-blur-xl transition-all hover:border-white/20 hover:bg-white/10 hover:scale-105"
           >
-            <Github className="h-4 w-4 text-white/70 transition-colors group-hover:text-white" />
-            <span className="text-sm text-white/70 transition-colors group-hover:text-white">
-              Star on GitHub
+            <Github className="h-4 w-4 text-white/60 transition-colors group-hover:text-white" />
+            <span className="text-sm font-medium text-white/60 transition-colors group-hover:text-white">
+              GitHub
             </span>
           </a>
-          
+
           <a
             href="https://buymeacoffee.com/daraboth"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-2 backdrop-blur-xl transition-all hover:border-yellow-500/40 hover:bg-yellow-500/20"
+            className="group flex items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-5 py-2.5 backdrop-blur-xl transition-all hover:border-yellow-500/40 hover:bg-yellow-500/20 hover:scale-105"
           >
             <Coffee className="h-4 w-4 text-yellow-400 transition-colors group-hover:text-yellow-300" />
-            <span className="text-sm text-yellow-400 transition-colors group-hover:text-yellow-300">
-              Buy Me a Coffee
+            <span className="text-sm font-medium text-yellow-400 transition-colors group-hover:text-yellow-300">
+              Support Project
             </span>
           </a>
         </div>
@@ -48,30 +65,30 @@ export default function MainInterface() {
 
       {/* Tabs Navigation */}
       <Tabs defaultValue="autocomplete" className="w-full">
-        <TabsList className="mb-6 sm:mb-8 grid w-full grid-cols-3 bg-white/10 p-1 backdrop-blur-xl">
+        <TabsList className="mb-8 sm:mb-12 grid w-full grid-cols-3 p-1 glass-morphism">
           <TabsTrigger
             value="autocomplete"
-            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm data-[state=active]:bg-white/20 data-[state=active]:text-white"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-md"
           >
             <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">Autocomplete</span>
-            <span className="xs:hidden">Auto</span>
+            <span className="hidden xs:inline text-white/70 group-data-[state=active]:text-white">Autocomplete</span>
+            <span className="xs:hidden text-white/70 group-data-[state=active]:text-white">Auto</span>
           </TabsTrigger>
           <TabsTrigger
             value="chat"
-            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm data-[state=active]:bg-white/20 data-[state=active]:text-white"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-md"
           >
             <MessagesSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">AI Chat</span>
-            <span className="xs:hidden">Chat</span>
+            <span className="hidden xs:inline text-white/70 group-data-[state=active]:text-white">AI Chat</span>
+            <span className="xs:hidden text-white/70 group-data-[state=active]:text-white">Chat</span>
           </TabsTrigger>
           <TabsTrigger
             value="training"
-            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm data-[state=active]:bg-white/20 data-[state=active]:text-white"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-md"
           >
             <BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">Training</span>
-            <span className="xs:hidden">Train</span>
+            <span className="hidden xs:inline text-white/70 group-data-[state=active]:text-white">Training</span>
+            <span className="xs:hidden text-white/70 group-data-[state=active]:text-white">Train</span>
           </TabsTrigger>
         </TabsList>
 
@@ -90,23 +107,29 @@ export default function MainInterface() {
           <TrainingTab />
         </TabsContent>
       </Tabs>
-      
+
       {/* Footer */}
-      <div className="mt-8 sm:mt-12 text-center">
-        <p className="flex items-center justify-center gap-1 text-xs sm:text-sm text-white/40">
-          Built with <Heart className="h-3 w-3 fill-red-500 text-red-500" /> by
-          <a
-            href="https://github.com/DaraBoth"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/60 transition-colors hover:text-white"
-          >
-            Bros smos
-          </a>
-        </p>
-        <p className="mt-2 text-xs text-white/30">
-          TypeFlow AI v1.0.0 - Open Source
-        </p>
+      <div className="mt-12 sm:mt-24 text-center border-t border-white/5 pt-12">
+        <div className="flex flex-col items-center gap-4">
+          <p className="flex items-center justify-center gap-1.5 text-xs sm:text-sm text-white/30">
+            Built with <Heart className="h-3.5 w-3.5 fill-red-500/50 text-red-500/50" /> by
+            <a
+              href="https://github.com/DaraBoth"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-white/50 transition-colors hover:text-white"
+            >
+              Bros Smos
+            </a>
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-white/5" />
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/20 font-semibold">
+              TypeFlow AI v1.0.0 • Production Stable
+            </p>
+            <span className="h-px w-8 bg-white/5" />
+          </div>
+        </div>
       </div>
     </div>
   )
