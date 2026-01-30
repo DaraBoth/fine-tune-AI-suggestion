@@ -70,6 +70,26 @@ export async function deleteTrainingFile(filename: string): Promise<void> {
 }
 
 /**
+ * Verify admin password
+ */
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const response = await fetch('/api/verify-admin', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  })
+
+  if (!response.ok) {
+    return false
+  }
+
+  const data = await response.json()
+  return data.success === true
+}
+
+/**
  * Get training statistics
  */
 export async function getTrainingStats(): Promise<TrainingStats> {
@@ -86,12 +106,8 @@ export async function getTrainingStats(): Promise<TrainingStats> {
  * View file content
  */
 export async function viewFileContent(filename: string): Promise<{ content: string }> {
-  const response = await fetch('/api/view-file', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ filename }),
+  const response = await fetch(`/api/view-file?filename=${encodeURIComponent(filename)}`, {
+    method: 'GET',
   })
 
   if (!response.ok) {

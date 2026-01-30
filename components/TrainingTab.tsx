@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { trainWithFile, getTrainingStats, deleteTrainingFile, viewFileContent, downloadFile, triggerFileDownload, type TrainingStats as ITrainingStats } from '@/services'
+import { trainWithFile, getTrainingStats, deleteTrainingFile, viewFileContent, downloadFile, triggerFileDownload, verifyAdminPassword, type TrainingStats as ITrainingStats } from '@/services'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'success' | 'error'
@@ -76,7 +76,39 @@ export default function TrainingTab() {
 
   // Delete/forget a trained file
   const handleForgetFile = useCallback(async (filename: string) => {
-    const toastId = toast.loading(`Deleting ${filename}...`, {
+    // Ask for admin password
+    const password = prompt('⚠️ Security Check\n\nEnter admin password to delete this file:')
+    
+    if (!password) {
+      return // User cancelled
+    }
+
+    const toastId = toast.loading(`Verifying password...`, {
+      description: 'Please wait',
+    })
+
+    // Verify password first
+    try {
+      const isValid = await verifyAdminPassword(password)
+      
+      if (!isValid) {
+        toast.error('Access Denied', {
+          id: toastId,
+          description: 'Invalid admin password. Deletion cancelled.',
+        })
+        return
+      }
+    } catch (error) {
+      toast.error('Verification Failed', {
+        id: toastId,
+        description: 'Could not verify password. Please try again.',
+      })
+      return
+    }
+
+    // Update toast to show deletion progress
+    toast.loading(`Deleting ${filename}...`, {
+      id: toastId,
       description: 'Removing training data from AI memory',
     })
 
@@ -120,16 +152,71 @@ export default function TrainingTab() {
     
     if (!confirmed) return
 
-    // Delete each file with its own toast
+    // Ask for admin password once for bulk deletion
+    const password = prompt('⚠️ Security Check\n\nEnter admin password to delete selected files:')
+    
+    if (!password) {
+      return // User cancelled
+    }
+
+    const toastId = toast.loading(`Verifying password...`, {
+      description: 'Please wait',
+    })
+
+    // Verify password first
+    try {
+      const isValid = await verifyAdminPassword(password)
+      
+      if (!isValid) {
+        toast.error('Access Denied', {
+          id: toastId,
+          description: 'Invalid admin password. Deletion cancelled.',
+        })
+        return
+      }
+      
+      // Close verification toast
+      toast.dismiss(toastId)
+    } catch (error) {
+      toast.error('Verification Failed', {
+        id: toastId,
+        description: 'Could not verify password. Please try again.',
+      })
+      return
+    }
+
+    // Delete each file with its own toast (skip password prompt since already verified)
     const filesToDelete = Array.from(selectedFiles)
     
     for (const filename of filesToDelete) {
-      await handleForgetFile(filename)
+      const deleteToastId = toast.loading(`Deleting ${filename}...`, {
+        description: 'Removing training data from AI memory',
+      })
+      
+      setDeletingFile(filename)
+      try {
+        await deleteTrainingFile(filename)
+        
+        // Refresh stats
+        await Promise.all([fetchStats(), fetchTrainedFiles()])
+        
+        toast.success(`Deleted ${filename}`, {
+          id: deleteToastId,
+          description: `Successfully removed training data`,
+        })
+      } catch (error) {
+        toast.error(`Failed to delete ${filename}`, {
+          id: deleteToastId,
+          description: 'An error occurred',
+        })
+      } finally {
+        setDeletingFile(null)
+      }
     }
     
     // Clear selection after all deletions
     setSelectedFiles(new Set())
-  }, [selectedFiles, handleForgetFile])
+  }, [selectedFiles, fetchStats, fetchTrainedFiles])
 
   // Toggle file selection
   const toggleFileSelection = useCallback((filename: string) => {
