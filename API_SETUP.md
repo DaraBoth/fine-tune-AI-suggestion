@@ -63,10 +63,10 @@ curl -X POST http://localhost:3001/api/public/complete-word \
 
 1. **Set Environment Variables:**
    ```bash
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   SUPABASE_URL=your-supabase-url
+   SUPABASE_ANON_KEY=your-anon-key
    OPENAI_API_KEY=your-openai-key
+   ADMIN_PASSWORD=your-secure-admin-password
    ```
 
 2. **Enable HTTPS:** All API requests must use HTTPS in production

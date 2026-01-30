@@ -72,9 +72,10 @@ $$;
 Create `.env.local` in the project root:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
 OPENAI_API_KEY=sk-your-openai-key-here
+ADMIN_PASSWORD=your-secure-admin-password-here
 ```
 
 ## Step 5: Run the App

@@ -180,11 +180,14 @@ Create a `.env.local` file in the root directory:
 
 ```env
 # Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_URL=your-supabase-project-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
 
 # OpenAI Configuration
 OPENAI_API_KEY=your-openai-api-key
+
+# Admin Security
+ADMIN_PASSWORD=your-secure-admin-password-here
 ```
 
 **To get your Supabase credentials:**
@@ -664,9 +667,10 @@ TypeFlow AI includes a complete public API system for third-party integration:
 ### Environment Variables for Production
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your-production-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-production-anon-key
+SUPABASE_URL=your-production-supabase-url
+SUPABASE_ANON_KEY=your-production-anon-key
 OPENAI_API_KEY=your-openai-api-key
+ADMIN_PASSWORD=your-secure-production-password
 ```
 
 ## ☕ Support the Project
