@@ -74,17 +74,18 @@ Examples:
     temperature: 0.1,
   })
 
-  const completion = response.choices[0]?.message?.content?.trim() || ''
-  // Remove quotes if AI added them
-  const cleaned = completion.replace(/['"]/g, '')
+  let completion = response.choices[0]?.message?.content?.trim() || ''
+  
+  // Remove any surrounding quotes that AI might have added
+  completion = completion.replace(/^["']|["']$/g, '')
   
   // If AI returned the full word instead of just the completion, extract the completion part
-  if (cleaned.toLowerCase().startsWith(incompleteWord.toLowerCase()) || 
-      cleaned.startsWith(incompleteWord)) {
-    return cleaned.substring(incompleteWord.length)
+  if (completion.toLowerCase().startsWith(incompleteWord.toLowerCase()) || 
+      completion.startsWith(incompleteWord)) {
+    return completion.substring(incompleteWord.length)
   }
   
-  return cleaned
+  return completion
 }
 
 /**
@@ -108,7 +109,12 @@ export async function generatePhraseSuggestion(userInput: string): Promise<strin
     temperature: 0.5,
   })
 
-  return response.choices[0]?.message?.content?.trim() || ''
+  let result = response.choices[0]?.message?.content?.trim() || ''
+  
+  // Remove any surrounding quotes that AI might have added
+  result = result.replace(/^["']|["']$/g, '')
+  
+  return result
 }
 
 /**
@@ -151,7 +157,12 @@ Provide clear, helpful, and professional responses.`
     temperature: 0.7,
   })
 
-  return response.choices[0]?.message?.content?.trim() || ''
+  let result = response.choices[0]?.message?.content?.trim() || ''
+  
+  // Remove any surrounding quotes that AI might have added
+  result = result.replace(/^["']|["']$/g, '')
+  
+  return result
 }
 
 /**
@@ -197,7 +208,12 @@ Continue (don't respond to) the text. Return only what comes next.`,
     temperature: 0.3,
   })
 
-  return response.choices[0]?.message?.content?.trim() || ''
+  let result = response.choices[0]?.message?.content?.trim() || ''
+  
+  // Remove any surrounding quotes that AI might have added
+  result = result.replace(/^["']|["']$/g, '')
+  
+  return result
 }
 
 /**
@@ -242,7 +258,10 @@ Return ONLY the missing characters to complete "${incompleteWord}". Do not retur
     temperature: 0.1,
   })
 
-  const completion = response.choices[0]?.message?.content?.trim() || ''
+  let completion = response.choices[0]?.message?.content?.trim() || ''
+  
+  // Remove any surrounding quotes that AI might have added
+  completion = completion.replace(/^["']|["']$/g, '')
   
   // If AI returned the full word instead of just the completion, extract the completion part
   if (completion.toLowerCase().startsWith(incompleteWord.toLowerCase()) || 
