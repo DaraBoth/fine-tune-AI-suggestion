@@ -29,7 +29,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  */
 export async function generateCompletion(userInput: string): Promise<string> {
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
@@ -53,7 +53,7 @@ export async function generateCompletion(userInput: string): Promise<string> {
  */
 export async function generateWordCompletion(userInput: string, incompleteWord: string): Promise<string> {
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
@@ -93,7 +93,7 @@ Examples:
  */
 export async function generatePhraseSuggestion(userInput: string): Promise<string> {
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
@@ -145,7 +145,7 @@ Provide clear, helpful, and professional responses.`
   })
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages,
     max_tokens: 500,
     temperature: 0.7,
@@ -168,7 +168,7 @@ export async function generateSmartPhraseSuggestion(
     : 'No specific context available.'
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
@@ -213,7 +213,7 @@ export async function generateSmartWordCompletion(
     : 'No specific context available.'
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
