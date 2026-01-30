@@ -56,6 +56,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if this is a manual training file (should be appended)
+    const isManualTraining = file.name === 'manual-training.txt'
+    
+    // If it's manual training, delete existing chunks for this file first
+    // This way we can re-chunk the combined content
+    if (isManualTraining) {
+      console.log('[Train] Checking for existing manual training data...')
+      
+      // Get existing content
+      const { data: existingChunks } = await supabase
+        .from('chunks_table')
+        .select('content')
+        .eq('metadata->>filename', file.name)
+        .order('metadata->>chunk_index', { ascending: true })
+      
+      // Delete old chunks
+      if (existingChunks && existingChunks.length > 0) {
+        console.log(`[Train] Found ${existingChunks.length} existing chunks, will merge with new content`)
+        await supabase
+          .from('chunks_table')
+          .delete()
+          .eq('metadata->>filename', file.name)
+      }
+    }
+
     // Upload original file to Supabase Storage first
     const fileBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(fileBuffer)
@@ -93,7 +118,26 @@ export async function POST(request: NextRequest) {
     } 
     // Handle plain text files
     else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-      extractedText = await file.text()
+      let newText = await file.text()
+      
+      // If manual training, append to existing content
+      if (isManualTraining) {
+        const { data: existingChunks } = await supabase
+          .from('chunks_table')
+          .select('content')
+          .eq('metadata->>filename', file.name)
+          .order('metadata->>chunk_index', { ascending: true })
+        
+        if (existingChunks && existingChunks.length > 0) {
+          const existingText = existingChunks.map((c: any) => c.content).join('\n\n')
+          extractedText = existingText + '\n\n' + newText
+          console.log('[Train] Appending new content to existing manual training data')
+        } else {
+          extractedText = newText
+        }
+      } else {
+        extractedText = newText
+      }
     } 
     // Unsupported file type
     else {

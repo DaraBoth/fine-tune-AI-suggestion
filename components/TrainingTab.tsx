@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'success' | 'error'
@@ -50,6 +51,7 @@ export default function TrainingTab() {
   const [deletingFile, setDeletingFile] = useState<string | null>(null)
   const [viewingFile, setViewingFile] = useState<{ filename: string; content: string; metadata: any } | null>(null)
   const [loadingView, setLoadingView] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
 
   // Fetch training statistics
   const fetchStats = useCallback(async () => {
@@ -85,11 +87,9 @@ export default function TrainingTab() {
 
   // Delete/forget a trained file
   const handleForgetFile = useCallback(async (filename: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to forget "${filename}"?\n\nThis will permanently delete all training data for this file.`
-    )
-    
-    if (!confirmed) return
+    const toastId = toast.loading(`Deleting ${filename}...`, {
+      description: 'Removing training data from AI memory',
+    })
 
     setDeletingFile(filename)
     try {
@@ -107,18 +107,77 @@ export default function TrainingTab() {
         // Refresh both stats and file list
         await Promise.all([fetchStats(), fetchTrainedFiles()])
         
-        // Show success message
-        alert(`✅ Successfully deleted ${data.deletedCount} chunks from "${filename}"`)
+        // Update toast to success
+        toast.success(`Deleted ${filename}`, {
+          id: toastId,
+          description: `Successfully removed ${data.deletedCount} chunks from AI memory`,
+        })
+        
+        // Remove from selected files if it was selected
+        setSelectedFiles(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(filename)
+          return newSet
+        })
       } else {
-        alert(`❌ Failed to delete file: ${data.error}`)
+        toast.error(`Failed to delete ${filename}`, {
+          id: toastId,
+          description: data.error,
+        })
       }
     } catch (error) {
       console.error('Failed to forget file:', error)
-      alert('❌ Failed to delete training data. Please try again.')
+      toast.error(`Failed to delete ${filename}`, {
+        id: toastId,
+        description: 'An unexpected error occurred. Please try again.',
+      })
     } finally {
       setDeletingFile(null)
     }
   }, [fetchStats, fetchTrainedFiles])
+
+  // Delete multiple selected files
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedFiles.size === 0) return
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedFiles.size} file(s)?\n\nThis will permanently remove all training data for these files.`
+    )
+    
+    if (!confirmed) return
+
+    // Delete each file with its own toast
+    const filesToDelete = Array.from(selectedFiles)
+    
+    for (const filename of filesToDelete) {
+      await handleForgetFile(filename)
+    }
+    
+    // Clear selection after all deletions
+    setSelectedFiles(new Set())
+  }, [selectedFiles, handleForgetFile])
+
+  // Toggle file selection
+  const toggleFileSelection = useCallback((filename: string) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(filename)) {
+        newSet.delete(filename)
+      } else {
+        newSet.add(filename)
+      }
+      return newSet
+    })
+  }, [])
+
+  // Select all files
+  const handleSelectAll = useCallback(() => {
+    if (selectedFiles.size === trainedFiles.length) {
+      setSelectedFiles(new Set())
+    } else {
+      setSelectedFiles(new Set(trainedFiles.map(f => f.filename)))
+    }
+  }, [selectedFiles.size, trainedFiles])
 
   // View file content
   const handleViewFile = useCallback(async (filename: string) => {
@@ -528,9 +587,32 @@ export default function TrainingTab() {
                 <div className="flex-1">
                   <p className="font-medium text-foreground">Trained Files ({trainedFiles.length})</p>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    View, download, or forget files to manage your AI's memory
+                    Select files to delete multiple at once
                   </p>
                 </div>
+                {trainedFiles.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {selectedFiles.size > 0 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteSelected}
+                        className="gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete ({selectedFiles.size})
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                      className="gap-2"
+                    >
+                      {selectedFiles.size === trainedFiles.length ? 'Deselect All' : 'Select All'}
+                    </Button>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -544,6 +626,12 @@ export default function TrainingTab() {
                       key={index} 
                       className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors group"
                     >
+                      <input
+                        type="checkbox"
+                        checked={selectedFiles.has(file.filename)}
+                        onChange={() => toggleFileSelection(file.filename)}
+                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 cursor-pointer"
+                      />
                       <FileText className="h-4 w-4 shrink-0 text-emerald-400/70" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs sm:text-sm text-foreground truncate font-medium">

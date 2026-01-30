@@ -267,9 +267,8 @@ export default function ChatInput() {
     setTeachSuccess(false)
 
     try {
-      // Create a text blob to send to training API with timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-      const filename = `training-${timestamp}.txt`
+      // Use a consistent filename for all text-based training
+      const filename = 'manual-training.txt'
       
       const textBlob = new Blob([inputValue], { type: 'text/plain' })
       const formData = new FormData()
