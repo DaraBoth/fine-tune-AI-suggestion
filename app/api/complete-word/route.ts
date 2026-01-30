@@ -106,14 +106,17 @@ export async function POST(request: NextRequest) {
         })
         .filter(s => s.text && s.text.trim().length > 0 && s.text.length < 50) // Word completions should be short
 
-      // Prioritize AI completion, then add direct extractions
+      // Separate AI-generated from direct extractions
+      const aiSuggestions = aiCompletion && aiCompletion.trim().length > 0 ? [{
+        text: aiCompletion,
+        source: 'ai-with-context' as const,
+        similarity: matches[0]?.similarity || 0,
+      }] : []
+      
+      // Combine: direct extractions first (pure trained data), then AI
       const allSuggestions = [
-        {
-          text: aiCompletion,
-          source: 'trained-data' as const,
-          similarity: matches[0]?.similarity || 0,
-        },
-        ...directCompletions
+        ...directCompletions, // These are pure trained-data
+        ...aiSuggestions      // This is AI-generated with context
       ].filter((s, index, self) => 
         // Remove duplicates and empty
         s.text && s.text.trim().length > 0 &&

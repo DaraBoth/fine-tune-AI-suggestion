@@ -769,20 +769,6 @@ export default function TrainingTab() {
                             }`} />
                         </div>
                         <span className="text-[10px] sm:text-xs text-white/50 max-w-[80px] truncate">{af.name}</span>
-
-                        {af.status === 'processing' && (
-                          <AnimatedBeam
-                            containerRef={containerRef}
-                            fromRef={fileRefs.current[af.id]}
-                            toRef={brainRef}
-                            pathColor="#3b82f6"
-                            pathWidth={3}
-                            gradientStartColor="#3b82f6"
-                            gradientStopColor="#8b5cf6"
-                            curvature={20}
-                            duration={2}
-                          />
-                        )}
                       </div>
                     ))}
                   </div>
@@ -805,25 +791,27 @@ export default function TrainingTab() {
                             }`} />
                         </div>
                         <span className="text-[10px] sm:text-xs text-white/50 max-w-[80px] truncate">{af.name}</span>
-
-                        {af.status === 'processing' && (
-                          <AnimatedBeam
-                            containerRef={containerRef}
-                            fromRef={fileRefs.current[af.id]}
-                            toRef={brainRef}
-                            reverse
-                            pathColor="#3b82f6"
-                            pathWidth={3}
-                            gradientStartColor="#8b5cf6"
-                            gradientStopColor="#3b82f6"
-                            curvature={-20}
-                            duration={2}
-                          />
-                        )}
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Render Upload Beams (Outside transform divs) */}
+                {activeFiles.map((af, i) => af.status === 'processing' && (
+                  <AnimatedBeam
+                    key={`beam-${af.id}`}
+                    containerRef={containerRef}
+                    fromRef={fileRefs.current[af.id]}
+                    toRef={brainRef}
+                    reverse={i % 2 !== 0}
+                    pathColor="#3b82f6"
+                    pathWidth={3}
+                    gradientStartColor={i % 2 === 0 ? "#3b82f6" : "#8b5cf6"}
+                    gradientStopColor={i % 2 === 0 ? "#8b5cf6" : "#3b82f6"}
+                    curvature={i % 2 === 0 ? 20 : -20}
+                    duration={2}
+                  />
+                ))}
 
                 <div className="absolute bottom-4 left-0 right-0 text-center flex flex-col items-center gap-2">
                   <div className="flex items-center justify-center gap-2">
@@ -922,7 +910,7 @@ export default function TrainingTab() {
                   className="z-20 relative flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full border border-primary/30 bg-black glass-morphism shadow-[0_0_40px_-10px_rgba(59,130,246,0.3)]"
                 >
                   <div className="absolute inset-0 rounded-full animate-pulse bg-primary/5" />
-                  <Image src="/icon.png" alt="AI Brain" width={48} height={48} className="relative z-30 h-10 w-10 sm:h-12 sm:w-12" />
+                  <Image src="/icon.png" alt="AI Brain" width={90} height={90} className="relative z-30 h-10 w-10 sm:h-12 sm:w-12" />
                   <div className="absolute -bottom-6 text-[10px] font-bold text-primary/80 uppercase tracking-tighter">AI Core</div>
                 </div>
 

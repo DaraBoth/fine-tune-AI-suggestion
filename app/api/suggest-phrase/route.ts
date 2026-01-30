@@ -107,14 +107,17 @@ export async function POST(request: NextRequest) {
         })
         .filter(s => s.text && s.text.trim().length > 0 && s.text.length < 200) // Filter out chunks
 
-      // Prioritize AI suggestion, then add direct extractions
+      // Separate AI-generated from direct extractions
+      const aiSuggestions = aiSuggestion && aiSuggestion.trim().length > 0 ? [{
+        text: aiSuggestion,
+        source: 'ai-with-context' as const,
+        similarity: matches[0]?.similarity || 0,
+      }] : []
+      
+      // Combine: direct extractions first (pure trained data), then AI
       const allSuggestions = [
-        {
-          text: aiSuggestion,
-          source: 'trained-data' as const,
-          similarity: matches[0]?.similarity || 0,
-        },
-        ...directSuggestions
+        ...directSuggestions, // These are pure trained-data
+        ...aiSuggestions      // This is AI-generated with context
       ].filter((s, index, self) => 
         // Remove duplicates and empty
         s.text && s.text.trim().length > 0 &&

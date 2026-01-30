@@ -423,10 +423,12 @@ export default function ChatInput() {
                       {/* Source Badge */}
                       <div className={`flex-shrink-0 px-2 py-1 rounded text-xs font-medium ${
                         sug.source === 'trained-data' 
-                          ? 'bg-emerald-500/20 text-emerald-400' 
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : sug.source === 'ai-with-context'
+                          ? 'bg-blue-500/20 text-blue-400'
                           : 'bg-purple-500/20 text-purple-400'
                       }`}>
-                        {sug.source === 'trained-data' ? 'Trained' : 'AI'}
+                        {sug.source === 'trained-data' ? 'Trained' : sug.source === 'ai-with-context' ? 'AI+Data' : 'AI'}
                       </div>
                     </button>
                   ))}

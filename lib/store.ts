@@ -10,7 +10,7 @@ interface Message {
 
 interface Suggestion {
   text: string
-  source: 'trained-data' | 'openai-fallback'
+  source: 'trained-data' | 'openai-fallback' | 'ai-with-context'
   similarity?: number
   suggestionType?: 'word' | 'phrase'
 }
