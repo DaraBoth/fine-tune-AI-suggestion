@@ -277,61 +277,101 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Process each chunk: generate embedding and insert into database
-    const insertedChunks = []
+    // Process chunks in batches to avoid timeout
+    const BATCH_SIZE = 50 // Process 50 chunks at a time
+    const TIMEOUT_THRESHOLD = 50000 // 50 seconds (leave 10s buffer for 60s timeout)
+    const startTime = Date.now()
     
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]
-      
-      try {
-        // Generate embedding using OpenAI
-        const embedding = await generateEmbedding(chunk)
+    const insertedChunks = []
+    let processedCount = 0
+    
+    // Process in batches
+    for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+      // Check if we're approaching timeout
+      const elapsedTime = Date.now() - startTime
+      if (elapsedTime > TIMEOUT_THRESHOLD) {
+        console.log(`[Train] Approaching timeout after ${elapsedTime}ms, stopping at chunk ${processedCount}/${chunks.length}`)
         
-        console.log(`Generated embedding for chunk ${i + 1}/${chunks.length}, dimension: ${embedding.length}`)
-        
-        // Categorize chunk type
-        const chunkCategory = categorizeChunk(chunk)
-        
-        // Insert into Supabase
-        const { data, error }:{data: any, error: any} = await supabase
-          .from('chunks_table')
-          .insert({
-            content: chunk,
-            embedding: embedding,
-            metadata: {
-              filename: file.name,
-              storage_path: uploadData?.path || null,
-              file_type: file.type,
-              file_size: file.size,
-              chunk_index: i,
-              chunk_type: chunkCategory,
-              chunk_strategy: chunkType, // Store the user's selected strategy
-              total_chunks: chunks.length,
-              characters: chunk.length,
-              uploaded_at: new Date().toISOString(),
-            },
-          } as any)
-          .select()
-          .single()
-
-        if (error) {
-          console.error('Error inserting chunk:', error)
-          continue
-        }
-
-        console.log(`Successfully inserted chunk ${i + 1}/${chunks.length} with ID: ${data?.id}`)
-        insertedChunks.push(data)
-      } catch (error) {
-        console.error('Error processing chunk:', error)
-        continue
+        return NextResponse.json({
+          success: true,
+          partial: true,
+          message: `Processed ${processedCount} of ${chunks.length} chunks (timeout limit reached). Please re-upload to continue processing remaining chunks.`,
+          chunks: insertedChunks.length,
+          filename: file.name,
+          processed: processedCount,
+          total: chunks.length,
+          remaining: chunks.length - processedCount,
+        })
       }
+      
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length)
+      const batchChunks = chunks.slice(batchStart, batchEnd)
+      
+      console.log(`[Train] Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: chunks ${batchStart + 1}-${batchEnd} of ${chunks.length}`)
+      
+      // Process batch chunks in parallel for speed
+      const batchPromises = batchChunks.map(async (chunk, batchIndex) => {
+        const i = batchStart + batchIndex
+        
+        try {
+          // Generate embedding using OpenAI
+          const embedding = await generateEmbedding(chunk)
+          
+          // Categorize chunk type
+          const chunkCategory = categorizeChunk(chunk)
+          
+          // Insert into Supabase
+          const { data, error }:{data: any, error: any} = await supabase
+            .from('chunks_table')
+            .insert({
+              content: chunk,
+              embedding: embedding,
+              metadata: {
+                filename: file.name,
+                storage_path: uploadData?.path || null,
+                file_type: file.type,
+                file_size: file.size,
+                chunk_index: i,
+                chunk_type: chunkCategory,
+                chunk_strategy: chunkType,
+                total_chunks: chunks.length,
+                characters: chunk.length,
+                uploaded_at: new Date().toISOString(),
+              },
+            } as any)
+            .select()
+            .single()
+
+          if (error) {
+            console.error(`Error inserting chunk ${i + 1}:`, error)
+            return null
+          }
+
+          return data
+        } catch (error) {
+          console.error(`Error processing chunk ${i + 1}:`, error)
+          return null
+        }
+      })
+      
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises)
+      const successfulInserts = batchResults.filter(r => r !== null)
+      insertedChunks.push(...successfulInserts)
+      processedCount += batchChunks.length
+      
+      console.log(`[Train] Batch complete: ${successfulInserts.length}/${batchChunks.length} successful, total: ${insertedChunks.length}/${chunks.length}`)
     }
+
+    const finalElapsedTime = Date.now() - startTime
+    console.log(`[Train] Completed processing ${insertedChunks.length} chunks in ${finalElapsedTime}ms`)
 
     return NextResponse.json({
       success: true,
       message: `Successfully processed ${insertedChunks.length} out of ${chunks.length} chunks`,
       chunks: insertedChunks.length,
       filename: file.name,
+      processingTime: finalElapsedTime,
     })
 
   } catch (error) {

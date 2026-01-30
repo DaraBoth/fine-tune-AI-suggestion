@@ -412,13 +412,39 @@ export default function TrainingTab() {
       try {
         const data = await trainWithFile(file, chunkStrategy)
 
-        successCount++
-        // Fetch stats and file list after each successful file
+        // Check if it was a partial upload (timeout)
+        if (data.partial) {
+          setUploadStatus({
+            status: 'success',
+            message: `⚠️ Partial upload for ${file.name}: Processed ${data.processed}/${data.total} chunks (timeout limit reached). Re-upload the same file to process remaining ${data.remaining} chunks.`,
+            chunks: data.chunks,
+          })
+          
+          // Show toast notification for partial upload
+          toast.warning('Partial Upload Completed', {
+            description: `${file.name} is too large. Processed ${data.processed}/${data.total} chunks. Please re-upload to continue.`,
+            duration: 10000,
+          })
+        } else {
+          successCount++
+          
+          // Show success toast with processing details
+          toast.success('File Trained Successfully', {
+            description: `${file.name}: ${data.chunks} chunks processed in ${Math.round((data.processingTime || 0) / 1000)}s`,
+          })
+        }
+        
+        // Fetch stats and file list after each file
         await Promise.all([fetchStats(), fetchTrainedFiles()])
       } catch (error: any) {
         errorCount++
         errors.push(`${file.name}: ${error.message || 'Failed to process'}`)
         console.error(`Error processing ${file.name}:`, error)
+        
+        // Show error toast
+        toast.error('Training Failed', {
+          description: `${file.name}: ${error.message || 'Unknown error'}`,
+        })
       }
     }
 
