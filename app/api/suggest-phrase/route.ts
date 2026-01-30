@@ -166,82 +166,59 @@ export async function POST(request: NextRequest) {
 
 /**
  * Generate a phrase suggestion based on user input and matched content
+ * Returns only the completion part (not including what user already typed)
  */
 function generatePhraseSuggestionFromContent(userInput: string, matchedContent: string): string {
   const input = userInput.trim()
   const content = matchedContent.trim()
 
-  // First, check if the content starts with the user input (most direct match)
-  if (content.toLowerCase().startsWith(input.toLowerCase())) {
-    const continuation = content.substring(input.length).trim()
-    if (continuation.length > 0) {
-      return continuation
-    }
-  }
-
-  // For exact character matching (Korean, Chinese, etc.)
-  if (content.startsWith(input)) {
-    const continuation = content.substring(input.length).trim()
-    if (continuation.length > 0) {
-      return continuation
-    }
-  }
-
-  // Split content into sentences
-  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0)
-
-  if (sentences.length === 0) return ''
-
-  // Check each sentence if it starts with the input
-  for (const sentence of sentences) {
-    const trimmed = sentence.trim()
-    
-    if (trimmed.toLowerCase().startsWith(input.toLowerCase())) {
-      const continuation = trimmed.substring(input.length).trim()
-      if (continuation.length > 0) {
-        return continuation
-      }
-    }
-
-    // Exact match for non-ASCII
-    if (trimmed.startsWith(input)) {
-      const continuation = trimmed.substring(input.length).trim()
-      if (continuation.length > 0) {
-        return continuation
-      }
-    }
-  }
-
-  // Get the last few words from user input for partial matching
+  // Get the last few words from user input for context matching
   const inputWords = input.split(/\s+/)
-  const lastInputWords = inputWords.slice(-3).join(' ')
+  const lastWord = inputWords[inputWords.length - 1]
+  const lastTwoWords = inputWords.slice(-2).join(' ')
+  const lastThreeWords = inputWords.slice(-3).join(' ')
 
-  // Find sentences that contain the user's recent words
-  for (const sentence of sentences) {
-    const trimmed = sentence.trim()
-
-    // Check if sentence contains the last words from input
-    const matchIndex = trimmed.toLowerCase().indexOf(lastInputWords.toLowerCase())
-    if (matchIndex !== -1) {
-      const afterMatch = trimmed.substring(matchIndex + lastInputWords.length).trim()
-      if (afterMatch.length > 0) {
-        return afterMatch
-      }
-    }
-
-    // For non-ASCII text, check exact character matching
-    const lastWord = inputWords[inputWords.length - 1]
-    if (lastWord && !/^[a-zA-Z]+$/.test(lastWord)) {
-      if (trimmed.includes(lastWord)) {
-        const index = trimmed.indexOf(lastWord)
-        const after = trimmed.substring(index + lastWord.length).trim()
-        if (after.length > 0) {
-          return after
-        }
+  // Strategy 1: Find the last word(s) in the content and return what comes after
+  // Try matching with last 3 words, then 2 words, then 1 word
+  for (const searchPhrase of [lastThreeWords, lastTwoWords, lastWord]) {
+    if (!searchPhrase) continue
+    
+    const searchLower = searchPhrase.toLowerCase()
+    const contentLower = content.toLowerCase()
+    
+    const index = contentLower.indexOf(searchLower)
+    if (index !== -1) {
+      // Found the phrase, return what comes after it
+      const afterIndex = index + searchPhrase.length
+      const continuation = content.substring(afterIndex).trim()
+      
+      // Remove leading punctuation if any
+      const cleanContinuation = continuation.replace(/^[.,;:!?]\s*/, '')
+      
+      if (cleanContinuation.length > 0) {
+        return cleanContinuation
       }
     }
   }
 
-  // If no specific match, return the first sentence
-  return sentences[0].trim()
+  // Strategy 2: If content is a complete sentence/phrase, check if it extends user input
+  if (content.toLowerCase().includes(input.toLowerCase())) {
+    const index = content.toLowerCase().indexOf(input.toLowerCase())
+    if (index !== -1) {
+      const continuation = content.substring(index + input.length).trim()
+      const cleanContinuation = continuation.replace(/^[.,;:!?]\s*/, '')
+      if (cleanContinuation.length > 0) {
+        return cleanContinuation
+      }
+    }
+  }
+
+  // Strategy 3: Return the entire content if it's a short phrase/word (might be a continuation)
+  // But only if it doesn't start with what user already typed
+  if (content.length < 50 && !content.toLowerCase().startsWith(input.toLowerCase())) {
+    return content
+  }
+
+  // No good match found
+  return ''
 }

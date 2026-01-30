@@ -12,6 +12,7 @@ interface Suggestion {
   text: string
   source: 'trained-data' | 'openai-fallback'
   similarity?: number
+  suggestionType?: 'word' | 'phrase'
 }
 
 interface UploadStatus {

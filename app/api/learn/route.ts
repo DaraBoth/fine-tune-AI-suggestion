@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]
       const chunkEmbedding = await generateEmbedding(chunk)
+      const chunkType = categorizeChunk(chunk)
       
       chunkInserts.push({
         content: chunk,
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           filename: 'auto-learned.txt',
           chunk_index: i,
+          chunk_type: chunkType,
           total_chunks: chunks.length,
           source_type: 'auto-learned',
           learned_at: new Date().toISOString(),
@@ -132,39 +134,93 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Chunk text into smaller pieces for better embedding quality
+ * Chunk text into individual sentences and important words/phrases
+ * This creates more precise autocomplete suggestions
  */
-function chunkText(text: string, chunkSize: number = 1000, overlap: number = 200): string[] {
+function chunkText(text: string): string[] {
   const chunks: string[] = []
   
-  if (text.trim().length <= chunkSize) {
-    return [text.trim()]
-  }
-  
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0)
-  
-  let currentChunk = ''
+  // Split into sentences (keeping the punctuation)
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || []
   
   for (const sentence of sentences) {
     const trimmed = sentence.trim()
     
-    if ((currentChunk + trimmed).length < chunkSize) {
-      currentChunk += (currentChunk ? '. ' : '') + trimmed
-    } else {
-      if (currentChunk) {
-        chunks.push(currentChunk + '.')
-        const words = currentChunk.split(' ')
-        const overlapWords = words.slice(-Math.min(overlap, words.length))
-        currentChunk = overlapWords.join(' ') + '. ' + trimmed
-      } else {
-        currentChunk = trimmed
+    // Skip very short or empty sentences
+    if (trimmed.length < 3) continue
+    
+    // Add the complete sentence as a chunk
+    chunks.push(trimmed)
+    
+    // Extract important words and phrases from the sentence
+    // Remove punctuation and split into words
+    const words = trimmed
+      .replace(/[^\w\s'-]/g, '') // Keep hyphens and apostrophes
+      .split(/\s+/)
+      .filter(word => word.length > 0)
+    
+    // Add individual significant words (length >= 4)
+    for (const word of words) {
+      if (word.length >= 4 && !isCommonWord(word.toLowerCase())) {
+        chunks.push(word)
+      }
+    }
+    
+    // Add 2-3 word phrases
+    for (let i = 0; i < words.length - 1; i++) {
+      const twoWordPhrase = words[i] + ' ' + words[i + 1]
+      if (twoWordPhrase.length >= 8) {
+        chunks.push(twoWordPhrase)
+      }
+      
+      if (i < words.length - 2) {
+        const threeWordPhrase = words[i] + ' ' + words[i + 1] + ' ' + words[i + 2]
+        if (threeWordPhrase.length >= 12) {
+          chunks.push(threeWordPhrase)
+        }
       }
     }
   }
   
-  if (currentChunk) {
-    chunks.push(currentChunk + '.')
-  }
-  
-  return chunks.filter(chunk => chunk.trim().length > 3)
+  // Remove duplicates while preserving order
+  return Array.from(new Set(chunks))
 }
+
+/**
+ * Check if a word is too common to be useful for autocomplete
+ */
+function isCommonWord(word: string): boolean {
+  const commonWords = new Set([
+    'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
+    'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
+    'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+    'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
+    'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
+    'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take',
+    'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than',
+    'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back',
+    'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even',
+    'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us', 'is',
+    'was', 'are', 'been', 'has', 'had', 'were', 'said', 'did', 'am', 'very'
+  ])
+  
+  return commonWords.has(word)
+}
+
+/**
+ * Categorize chunk type for better matching
+ */
+function categorizeChunk(text: string): 'word' | 'phrase' | 'sentence' {
+  const trimmed = text.trim()
+  const wordCount = trimmed.split(/\s+/).length
+  const hasPunctuation = /[.!?]$/.test(trimmed)
+  
+  if (wordCount === 1) {
+    return 'word'
+  } else if (wordCount <= 3 && !hasPunctuation) {
+    return 'phrase'
+  } else {
+    return 'sentence'
+  }
+}
+

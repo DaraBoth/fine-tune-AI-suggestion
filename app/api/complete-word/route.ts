@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Find a word completion from matched content
+ * Returns only the completion part (not the full word)
  */
 function findWordCompletion(text: string, incompleteWord: string, matchedContent: string): string {
   const words = matchedContent.split(/\s+/)
@@ -177,18 +178,20 @@ function findWordCompletion(text: string, incompleteWord: string, matchedContent
     if (/^[a-zA-Z]+$/.test(incompleteWord)) {
       if (cleanWord.toLowerCase().startsWith(incompleteWord.toLowerCase()) && 
           cleanWord.length > incompleteWord.length) {
-        return cleanWord
+        // Return only the completion part
+        return cleanWord.substring(incompleteWord.length)
       }
     } 
     // For non-ASCII (Korean, Chinese, etc.), use exact prefix matching
     else {
       if (cleanWord.startsWith(incompleteWord) && cleanWord.length > incompleteWord.length) {
-        return cleanWord
+        // Return only the completion part
+        return cleanWord.substring(incompleteWord.length)
       }
     }
   }
   
-  // If no exact match, look for the continuation after the incomplete word in the content
+  // If no exact match found in words, look for the continuation in content
   const contentLower = matchedContent.toLowerCase()
   const incompleteLower = incompleteWord.toLowerCase()
   const index = contentLower.indexOf(incompleteLower)
@@ -198,10 +201,11 @@ function findWordCompletion(text: string, incompleteWord: string, matchedContent
     const afterIncomplete = matchedContent.substring(index + incompleteWord.length)
     const nextWordMatch = afterIncomplete.match(/^\S+/)
     if (nextWordMatch) {
-      return incompleteWord + nextWordMatch[0]
+      // Return just the completion part
+      return nextWordMatch[0]
     }
   }
   
-  // If no match found, return the incomplete word as-is
-  return incompleteWord
+  // If no match found, return empty
+  return ''
 }

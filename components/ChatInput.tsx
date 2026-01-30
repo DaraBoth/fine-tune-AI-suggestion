@@ -89,20 +89,33 @@ export default function ChatInput() {
     setIsLoading(true)
     
     try {
-      let data
+      let allSuggestions: any[] = []
 
       if (analysis.type === 'word' && analysis.incompleteWord) {
-        data = await completeWord(text, analysis.incompleteWord)
+        // For word completion, fetch both word completions and phrase suggestions
+        const [wordData, phraseData] = await Promise.all([
+          completeWord(text, analysis.incompleteWord),
+          suggestPhrase(text)
+        ])
+        
+        // Combine: word completions first, then phrase suggestions
+        if (wordData?.suggestions) {
+          allSuggestions = wordData.suggestions.map((s: any) => ({ ...s, suggestionType: 'word' }))
+        }
+        if (phraseData?.suggestions) {
+          const phraseSuggestions = phraseData.suggestions.map((s: any) => ({ ...s, suggestionType: 'phrase' }))
+          allSuggestions = [...allSuggestions, ...phraseSuggestions]
+        }
       } else if (analysis.type === 'phrase') {
-        data = await suggestPhrase(text)
+        // For phrase suggestions only
+        const data = await suggestPhrase(text)
+        if (data?.suggestions) {
+          allSuggestions = data.suggestions.map((s: any) => ({ ...s, suggestionType: 'phrase' }))
+        }
       }
 
-      if (data) {
-        setSuggestions(data.suggestions || [])
-        setSelectedSuggestionIndex(0) // Reset to first suggestion
-      } else {
-        setSuggestions([])
-      }
+      setSuggestions(allSuggestions)
+      setSelectedSuggestionIndex(0) // Reset to first suggestion
     } catch (error) {
       console.error('Error fetching suggestion:', error)
       setSuggestions([])
@@ -167,7 +180,8 @@ export default function ChatInput() {
     // Enter or Tab - Accept selected suggestion
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault()
-      acceptSuggestion(suggestions[selectedSuggestionIndex].text)
+      const selectedSuggestion = suggestions[selectedSuggestionIndex]
+      acceptSuggestion(selectedSuggestion.text, selectedSuggestion.suggestionType)
       return
     }
 
@@ -182,7 +196,8 @@ export default function ChatInput() {
     const num = parseInt(e.key)
     if (num >= 1 && num <= 5 && num <= suggestions.length) {
       e.preventDefault()
-      acceptSuggestion(suggestions[num - 1].text)
+      const selectedSuggestion = suggestions[num - 1]
+      acceptSuggestion(selectedSuggestion.text, selectedSuggestion.suggestionType)
       return
     }
   }
@@ -190,26 +205,24 @@ export default function ChatInput() {
   /**
    * Accept a suggestion and add it to the input
    */
-  const acceptSuggestion = async (suggestionText: string) => {
+  const acceptSuggestion = async (suggestionText: string, suggestionType?: 'word' | 'phrase') => {
     const analysis = analyzeInputState(inputValue)
     let completedText = inputValue
     
-    if (analysis.type === 'word' && analysis.incompleteWord) {
-      // Replace the incomplete word with the suggestion
-      const words = inputValue.split(/\s+/)
-      words[words.length - 1] = suggestionText
-      completedText = words.join(' ')
-    } else if (analysis.type === 'phrase') {
-      // Append the phrase suggestion
+    // Use suggestionType if provided, otherwise fallback to analysis
+    const type = suggestionType || analysis.type
+    
+    if (type === 'word' && analysis.incompleteWord) {
+      // For word completion: append the completion to the incomplete word
+      // suggestionText should be just the completion part (e.g., "인" not "확인")
       completedText = inputValue + suggestionText
+    } else if (type === 'phrase') {
+      // For phrase suggestion: append with space if needed
+      const needsSpace = !inputValue.endsWith(' ') && suggestionText.length > 0
+      completedText = inputValue + (needsSpace ? ' ' : '') + suggestionText
     } else {
-      // Fallback: try to determine best approach
-      const currentInput = inputValue.trimEnd()
-      if (suggestionText.toLowerCase().startsWith(currentInput.toLowerCase())) {
-        completedText = suggestionText
-      } else {
-        completedText = currentInput + ' ' + suggestionText
-      }
+      // Fallback: append with space
+      completedText = inputValue.trimEnd() + ' ' + suggestionText
     }
     
     // Check if this suggestion came from AI (not from trained data)
@@ -350,7 +363,7 @@ export default function ChatInput() {
                     <button
                       key={index}
                       onClick={() => {
-                        acceptSuggestion(sug.text)
+                        acceptSuggestion(sug.text, sug.suggestionType)
                         textareaRef.current?.focus()
                       }}
                       className={`w-full z-40 px-4 py-3 flex items-center gap-3 transition-colors text-left group border-b border-white/5 last:border-b-0 ${
@@ -362,28 +375,43 @@ export default function ChatInput() {
                       
                       {/* Suggestion Text */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-white text-base">
-                          {(() => {
-                            const analysis = analyzeInputState(inputValue)
-                            if (analysis.type === 'word' && analysis.incompleteWord) {
-                              // For word completion: show input without incomplete word, then show suggestion
-                              const inputWithoutIncomplete = inputValue.slice(0, -analysis.incompleteWord.length)
-                              return (
-                                <>
-                                  <span className="text-white/50">{inputWithoutIncomplete}</span>
-                                  <span className="text-white font-medium">{sug.text}</span>
-                                </>
-                              )
-                            } else {
-                              // For phrase suggestion: show full input + suggestion
-                              return (
-                                <>
-                                  <span className="text-white/50">{inputValue}</span>
-                                  <span className="text-white font-medium">{sug.text}</span>
-                                </>
-                              )
-                            }
-                          })()}
+                        <div className="text-white text-base flex items-center gap-2">
+                          {/* Show suggestion type badge */}
+                          {sug.suggestionType && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              sug.suggestionType === 'word' 
+                                ? 'bg-blue-500/20 text-blue-400' 
+                                : 'bg-purple-500/20 text-purple-400'
+                            }`}>
+                              {sug.suggestionType === 'word' ? 'Word' : 'Phrase'}
+                            </span>
+                          )}
+                          <div>
+                            {(() => {
+                              const analysis = analyzeInputState(inputValue)
+                              const type = sug.suggestionType || analysis.type
+                              
+                              if (type === 'word' && analysis.incompleteWord) {
+                                // For word completion: show full input with the completion appended
+                                return (
+                                  <>
+                                    <span className="text-white/50">{inputValue}</span>
+                                    <span className="text-white font-medium">{sug.text}</span>
+                                  </>
+                                )
+                              } else {
+                                // For phrase suggestion: show full input + suggestion (with space if needed)
+                                const needsSpace = !inputValue.endsWith(' ') && sug.text.length > 0
+                                return (
+                                  <>
+                                    <span className="text-white/50">{inputValue}</span>
+                                    {needsSpace && <span className="text-white/50"> </span>}
+                                    <span className="text-white font-medium">{sug.text}</span>
+                                  </>
+                                )
+                              }
+                            })()}
+                          </div>
                         </div>
                         {sug.similarity && (
                           <div className="text-xs text-white/40 mt-0.5">
