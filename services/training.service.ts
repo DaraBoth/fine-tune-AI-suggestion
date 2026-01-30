@@ -25,9 +25,13 @@ export interface FileInfo {
 /**
  * Train AI with a file (PDF or text)
  */
-export async function trainWithFile(file: File): Promise<any> {
+export async function trainWithFile(
+  file: File, 
+  chunkType: 'word' | 'sentence' | 'smart' = 'smart'
+): Promise<any> {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('chunkType', chunkType)
 
   const response = await fetch('/api/train', {
     method: 'POST',

@@ -4,10 +4,69 @@ import { generateEmbedding } from '@/lib/openai'
 import pdf from 'pdf-parse'
 
 /**
- * Chunk text into individual sentences and important words/phrases
+ * Chunk text by words (word-by-word extraction)
+ */
+function chunkByWords(text: string): string[] {
+  const chunks: string[] = []
+  
+  // Split by whitespace and punctuation, keeping meaningful words
+  const words = text
+    .replace(/[\r\n]+/g, ' ') // Replace newlines with spaces
+    .split(/[\s,.!?;:()\[\]{}"']+/) // Split by spaces and punctuation
+    .map(w => w.trim())
+    .filter(w => w.length > 0)
+  
+  for (const word of words) {
+    // Skip very short words and common words
+    if (word.length >= 2 && !isCommonWord(word.toLowerCase())) {
+      chunks.push(word)
+    }
+  }
+  
+  // Remove duplicates
+  return Array.from(new Set(chunks))
+}
+
+/**
+ * Chunk text by sentences (sentence-by-sentence extraction)
+ */
+function chunkBySentences(text: string): string[] {
+  const chunks: string[] = []
+  
+  // Split by sentence-ending punctuation (. ! ? and also handle ellipsis, etc.)
+  const sentences = text
+    .replace(/([.!?])\s+/g, '$1|') // Mark sentence boundaries
+    .replace(/\.{3,}/g, '...|') // Handle ellipsis
+    .split('|')
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+  
+  for (const sentence of sentences) {
+    // Skip very short sentences
+    if (sentence.length >= 3) {
+      chunks.push(sentence)
+    }
+  }
+  
+  // Remove duplicates
+  return Array.from(new Set(chunks))
+}
+
+/**
+ * Chunk text into individual sentences and important words/phrases (default/smart mode)
  * This creates more precise autocomplete suggestions
  */
-function chunkText(text: string): string[] {
+function chunkText(text: string, chunkType: 'word' | 'sentence' | 'smart' = 'smart'): string[] {
+  // Use specific chunking strategy if requested
+  if (chunkType === 'word') {
+    return chunkByWords(text)
+  }
+  
+  if (chunkType === 'sentence') {
+    return chunkBySentences(text)
+  }
+  
+  // Smart mode: extract sentences, words, and phrases
   const chunks: string[] = []
   
   // Split into sentences (keeping the punctuation)
@@ -98,6 +157,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const chunkTypeParam = formData.get('chunkType') as string
     
     if (!file) {
       return NextResponse.json(
@@ -105,6 +165,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Parse chunk type (default to 'smart')
+    const chunkType = (['word', 'sentence', 'smart'].includes(chunkTypeParam)) 
+      ? chunkTypeParam as 'word' | 'sentence' | 'smart'
+      : 'smart'
+    
+    console.log(`[Train] Using chunking strategy: ${chunkType}`)
 
     // Check if this is a manual training file (should be appended)
     const isManualTraining = file.name === 'manual-training.txt'
@@ -194,11 +261,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Chunk the text into sentences and phrases
-    const chunks = chunkText(extractedText)
+    // Chunk the text using the selected strategy
+    const chunks = chunkText(extractedText, chunkType)
 
     console.log(`Extracted text length: ${extractedText.length}`)
-    console.log(`Created ${chunks.length} chunks from text`)
+    console.log(`Created ${chunks.length} chunks from text using '${chunkType}' strategy`)
     if (chunks.length > 0) {
       console.log(`First chunk preview: ${chunks[0].substring(0, 100)}...`)
     }
@@ -223,7 +290,7 @@ export async function POST(request: NextRequest) {
         console.log(`Generated embedding for chunk ${i + 1}/${chunks.length}, dimension: ${embedding.length}`)
         
         // Categorize chunk type
-        const chunkType = categorizeChunk(chunk)
+        const chunkCategory = categorizeChunk(chunk)
         
         // Insert into Supabase
         const { data, error }:{data: any, error: any} = await supabase
@@ -237,7 +304,8 @@ export async function POST(request: NextRequest) {
               file_type: file.type,
               file_size: file.size,
               chunk_index: i,
-              chunk_type: chunkType,
+              chunk_type: chunkCategory,
+              chunk_strategy: chunkType, // Store the user's selected strategy
               total_chunks: chunks.length,
               characters: chunk.length,
               uploaded_at: new Date().toISOString(),
