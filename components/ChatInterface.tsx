@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Send, Bot, User, Database, Sparkles, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
+import { sendChatMessage, type ChatMessage } from '@/services'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -48,36 +49,21 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversationHistory: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      })
+      const data = await sendChatMessage(
+        userMessage,
+        messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+      )
 
-      if (response.ok) {
-        const data = await response.json()
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.response,
-          usedKnowledgeBase: data.usedKnowledgeBase,
-          contextChunks: data.contextChunks,
-        }
-        addMessage(assistantMessage)
-      } else {
-        const errorMessage: Message = {
-          role: 'assistant',
-          content: 'Sorry, I encountered an error processing your request.',
-        }
-        addMessage(errorMessage)
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response,
+        usedKnowledgeBase: (data as any).usedKnowledgeBase,
+        contextChunks: (data as any).contextChunks,
       }
+      addMessage(assistantMessage)
     } catch (error) {
       console.error('Chat error:', error)
       const errorMessage: Message = {

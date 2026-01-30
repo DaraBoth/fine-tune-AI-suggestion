@@ -59,21 +59,22 @@ export async function POST(request: NextRequest) {
     // Check if this is a manual training file (should be appended)
     const isManualTraining = file.name === 'manual-training.txt'
     
-    // If it's manual training, delete existing chunks for this file first
-    // This way we can re-chunk the combined content
+    // If it's manual training, get existing content first (before deleting)
+    let existingManualContent = ''
     if (isManualTraining) {
       console.log('[Train] Checking for existing manual training data...')
       
-      // Get existing content
       const { data: existingChunks } = await supabase
         .from('chunks_table')
         .select('content')
         .eq('metadata->>filename', file.name)
         .order('metadata->>chunk_index', { ascending: true })
       
-      // Delete old chunks
       if (existingChunks && existingChunks.length > 0) {
-        console.log(`[Train] Found ${existingChunks.length} existing chunks, will merge with new content`)
+        existingManualContent = existingChunks.map((c: any) => c.content).join('\n\n')
+        console.log(`[Train] Found existing content: ${existingManualContent.length} characters`)
+        
+        // Delete old chunks so we can re-chunk the combined content
         await supabase
           .from('chunks_table')
           .delete()
@@ -118,23 +119,12 @@ export async function POST(request: NextRequest) {
     } 
     // Handle plain text files
     else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-      let newText = await file.text()
+      const newText = await file.text()
       
       // If manual training, append to existing content
-      if (isManualTraining) {
-        const { data: existingChunks } = await supabase
-          .from('chunks_table')
-          .select('content')
-          .eq('metadata->>filename', file.name)
-          .order('metadata->>chunk_index', { ascending: true })
-        
-        if (existingChunks && existingChunks.length > 0) {
-          const existingText = existingChunks.map((c: any) => c.content).join('\n\n')
-          extractedText = existingText + '\n\n' + newText
-          console.log('[Train] Appending new content to existing manual training data')
-        } else {
-          extractedText = newText
-        }
+      if (isManualTraining && existingManualContent) {
+        extractedText = existingManualContent + '\n\n' + newText
+        console.log('[Train] Appended new content to existing manual training data')
       } else {
         extractedText = newText
       }

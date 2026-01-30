@@ -18,21 +18,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { trainWithFile, getTrainingStats, deleteTrainingFile, viewFileContent, downloadFile, triggerFileDownload, type TrainingStats as ITrainingStats } from '@/services'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'success' | 'error'
   message: string
   filename?: string
   chunks?: number
-}
-
-interface TrainingStats {
-  totalChunks: number
-  totalFiles: number
-  totalCharacters: number
-  files: string[]
-  lastTrainingDate: string | null
-  lastTrainingFile: string | null
 }
 
 interface TrainedFile {
@@ -44,7 +36,7 @@ interface TrainedFile {
 export default function TrainingTab() {
   const uploadStatus = useAppStore((state) => state.trainingUploadStatus)
   const setUploadStatus = useAppStore((state) => state.setTrainingUploadStatus)
-  const [stats, setStats] = useState<TrainingStats | null>(null)
+  const [stats, setStats] = useState<ITrainingStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
   const [trainedFiles, setTrainedFiles] = useState<TrainedFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
@@ -57,11 +49,8 @@ export default function TrainingTab() {
   const fetchStats = useCallback(async () => {
     setLoadingStats(true)
     try {
-      const response = await fetch('/api/training-stats')
-      if (response.ok) {
-        const data = await response.json()
-        setStats(data)
-      }
+      const data = await getTrainingStats()
+      setStats(data)
     } catch (error) {
       console.error('Failed to fetch training stats:', error)
     } finally {
@@ -93,38 +82,23 @@ export default function TrainingTab() {
 
     setDeletingFile(filename)
     try {
-      const response = await fetch('/api/forget', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ filename }),
+      await deleteTrainingFile(filename)
+      
+      // Refresh both stats and file list
+      await Promise.all([fetchStats(), fetchTrainedFiles()])
+      
+      // Update toast to success
+      toast.success(`Deleted ${filename}`, {
+        id: toastId,
+        description: `Successfully removed training data from AI memory`,
       })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        // Refresh both stats and file list
-        await Promise.all([fetchStats(), fetchTrainedFiles()])
-        
-        // Update toast to success
-        toast.success(`Deleted ${filename}`, {
-          id: toastId,
-          description: `Successfully removed ${data.deletedCount} chunks from AI memory`,
-        })
-        
-        // Remove from selected files if it was selected
-        setSelectedFiles(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(filename)
-          return newSet
-        })
-      } else {
-        toast.error(`Failed to delete ${filename}`, {
-          id: toastId,
-          description: data.error,
-        })
-      }
+      
+      // Remove from selected files if it was selected
+      setSelectedFiles(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(filename)
+        return newSet
+      })
     } catch (error) {
       console.error('Failed to forget file:', error)
       toast.error(`Failed to delete ${filename}`, {
@@ -183,18 +157,13 @@ export default function TrainingTab() {
   const handleViewFile = useCallback(async (filename: string) => {
     setLoadingView(true)
     try {
-      const response = await fetch(`/api/view-file?filename=${encodeURIComponent(filename)}`)
-      const data = await response.json()
+      const data = await viewFileContent(filename)
 
-      if (response.ok) {
-        setViewingFile({
-          filename: data.filename,
-          content: data.content,
-          metadata: data.metadata,
-        })
-      } else {
-        alert(`❌ Failed to load file: ${data.error}`)
-      }
+      setViewingFile({
+        filename: filename,
+        content: data.content,
+        metadata: {},
+      })
     } catch (error) {
       console.error('Failed to view file:', error)
       alert('❌ Failed to load file content. Please try again.')
@@ -206,24 +175,8 @@ export default function TrainingTab() {
   // Download file content
   const handleDownloadFile = useCallback(async (filename: string) => {
     try {
-      // Download the original file from Supabase Storage
-      const response = await fetch(`/api/download-file?filename=${encodeURIComponent(filename)}`)
-
-      if (response.ok) {
-        // Get the file as a blob
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } else {
-        const data = await response.json()
-        alert(`❌ Failed to download file: ${data.error}`)
-      }
+      const blob = await downloadFile(filename)
+      triggerFileDownload(blob, filename)
     } catch (error) {
       console.error('Failed to download file:', error)
       alert('❌ Failed to download file. Please try again.')
@@ -323,27 +276,14 @@ export default function TrainingTab() {
       })
 
       try {
-        const formData = new FormData()
-        formData.append('file', file)
+        const data = await trainWithFile(file)
 
-        const response = await fetch('/api/train', {
-          method: 'POST',
-          body: formData,
-        })
-
-        const data = await response.json()
-
-        if (response.ok) {
-          successCount++
-          // Fetch stats and file list after each successful file
-          await Promise.all([fetchStats(), fetchTrainedFiles()])
-        } else {
-          errorCount++
-          errors.push(`${file.name}: ${data.error || 'Failed to process'}`)
-        }
-      } catch (error) {
+        successCount++
+        // Fetch stats and file list after each successful file
+        await Promise.all([fetchStats(), fetchTrainedFiles()])
+      } catch (error: any) {
         errorCount++
-        errors.push(`${file.name}: Network error`)
+        errors.push(`${file.name}: ${error.message || 'Failed to process'}`)
         console.error(`Error processing ${file.name}:`, error)
       }
     }

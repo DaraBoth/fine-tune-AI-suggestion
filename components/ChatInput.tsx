@@ -9,6 +9,7 @@ import { useAppStore } from '@/lib/store'
 import ShimmerButton from '@/components/ui/shimmer-button'
 import Sparkles from '@/components/ui/sparkles'
 import { BorderBeam } from '@/components/ui/border-beam'
+import { completeWord, suggestPhrase, learnFromAcceptedSuggestion } from '@/services'
 
 export default function ChatInput() {
   // Get state and actions from store
@@ -88,26 +89,15 @@ export default function ChatInput() {
     setIsLoading(true)
     
     try {
-      let endpoint = ''
-      let requestBody: any = { text }
+      let data
 
-      if (analysis.type === 'word') {
-        endpoint = '/api/complete-word'
-        requestBody.incompleteWord = analysis.incompleteWord
+      if (analysis.type === 'word' && analysis.incompleteWord) {
+        data = await completeWord(text, analysis.incompleteWord)
       } else if (analysis.type === 'phrase') {
-        endpoint = '/api/suggest-phrase'
+        data = await suggestPhrase(text)
       }
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
+      if (data) {
         setSuggestions(data.suggestions || [])
         setSelectedSuggestionIndex(0) // Reset to first suggestion
       } else {
@@ -200,7 +190,7 @@ export default function ChatInput() {
   /**
    * Accept a suggestion and add it to the input
    */
-  const acceptSuggestion = (suggestionText: string) => {
+  const acceptSuggestion = async (suggestionText: string) => {
     const analysis = analyzeInputState(inputValue)
     let completedText = inputValue
     
@@ -220,6 +210,26 @@ export default function ChatInput() {
       } else {
         completedText = currentInput + ' ' + suggestionText
       }
+    }
+    
+    // Check if this suggestion came from AI (not from trained data)
+    const selectedSuggestion = suggestions[selectedSuggestionIndex]
+    if (selectedSuggestion && selectedSuggestion.source === 'openai-fallback') {
+      // Auto-learn this accepted suggestion
+      console.log('[Auto-Learn] User accepted AI suggestion, learning:', suggestionText)
+      
+      // Send to learning API (don't await to avoid blocking UI)
+      learnFromAcceptedSuggestion(suggestionText, inputValue, selectedSuggestion.source)
+        .then((data) => {
+          if (data.learned) {
+            console.log('[Auto-Learn] Successfully learned:', data.text)
+          } else {
+            console.log('[Auto-Learn] Skipped learning:', data.reason)
+          }
+        })
+        .catch((error) => {
+          console.error('[Auto-Learn] Failed:', error)
+        })
     }
     
     setInputValue(completedText)
@@ -267,26 +277,12 @@ export default function ChatInput() {
     setTeachSuccess(false)
 
     try {
-      // Use a consistent filename for all text-based training
-      const filename = 'manual-training.txt'
+      const { trainWithText } = await import('@/services')
+      const data = await trainWithText(inputValue)
       
-      const textBlob = new Blob([inputValue], { type: 'text/plain' })
-      const formData = new FormData()
-      formData.append('file', textBlob, filename)
-
-      const response = await fetch('/api/train', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setTeachSuccess(true)
-        setTimeout(() => setTeachSuccess(false), 3000)
-        console.log('Training successful:', data)
-      } else {
-        console.error('Training failed:', await response.text())
-      }
+      setTeachSuccess(true)
+      setTimeout(() => setTeachSuccess(false), 3000)
+      console.log('Training successful:', data)
     } catch (error) {
       console.error('Error teaching AI:', error)
     } finally {
@@ -339,7 +335,7 @@ export default function ChatInput() {
               <textarea
                 ref={textareaRef}
                 value={inputValue}
-                onChange={handleInputChange}
+                onChange={handleInputChange} 
                 onKeyDown={handleKeyDown}
                 placeholder="Start typing... AI will suggest completions based on your trained data"
                 className="min-h-[100px] sm:min-h-[72px] w-full resize-none rounded-xl border-2 border-white/20 bg-slate-900/50 px-3 sm:px-5 py-3 sm:py-4 text-sm sm:text-base leading-relaxed text-white caret-blue-400 placeholder:text-white/30 focus:border-blue-500/50 focus:bg-slate-800/60 focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition-all duration-300"
