@@ -62,7 +62,7 @@ export default function TrainingTab() {
   const fetchTrainedFiles = useCallback(async () => {
     setLoadingFiles(true)
     try {
-      const response = await fetch('/api/forget')
+      const response = await fetch('/api/trained-files')
       if (response.ok) {
         const data = await response.json()
         setTrainedFiles(data.files || [])
@@ -353,26 +353,24 @@ export default function TrainingTab() {
     }
   }, [])
 
-  // Set up polling to refresh stats and files periodically
+  // Initial fetch on mount
   useEffect(() => {
-    fetchStats() // Initial fetch
-    fetchTrainedFiles() // Initial fetch of trained files
-
-    // Poll every 10 seconds to check for updates
-    const interval = setInterval(() => {
-      fetchStats()
-      fetchTrainedFiles()
-    }, 10000)
-
-    return () => clearInterval(interval)
+    fetchStats()
+    fetchTrainedFiles()
   }, [fetchStats, fetchTrainedFiles])
 
-  // Immediate refresh after successful upload
+  // Debounced refresh after successful upload (wait 1 second after last change)
   useEffect(() => {
     if (uploadStatus.status === 'success') {
-      fetchStats()
+      const debounceTimer = setTimeout(() => {
+        console.log('[TrainingTab] Refreshing stats after upload completion')
+        fetchStats()
+        fetchTrainedFiles()
+      }, 1000) // Wait 1 second after the last upload success
+
+      return () => clearTimeout(debounceTimer)
     }
-  }, [uploadStatus.status, fetchStats])
+  }, [uploadStatus.status, fetchStats, fetchTrainedFiles])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return

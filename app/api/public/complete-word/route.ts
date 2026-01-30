@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Search for relevant chunks
     const { data, error }:{data: any, error: any} = await supabase.rpc('match_chunks', {
       query_embedding: embedding,
-      match_threshold: 0.5,
+      match_threshold: 0.2,
       match_count: 10,
     } as any)
 
