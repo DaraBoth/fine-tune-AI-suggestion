@@ -97,7 +97,12 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
  * Get training statistics
  */
 export async function getTrainingStats(): Promise<TrainingStats> {
-  const response = await fetch('/api/training-stats')
+  const response = await fetch('/api/training-stats', {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache'
+    }
+  })
 
   if (!response.ok) {
     throw new Error('Failed to fetch training stats')

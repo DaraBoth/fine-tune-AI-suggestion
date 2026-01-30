@@ -88,14 +88,18 @@ export const AnimatedBeam = ({
             }
         };
 
-        const resizeObserver = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                updatePath();
-            }
+        const resizeObserver = new ResizeObserver(() => {
+            updatePath();
         });
 
         if (containerRef?.current) {
             resizeObserver.observe(containerRef.current);
+        }
+        if (fromRef?.current) {
+            resizeObserver.observe(fromRef.current);
+        }
+        if (toRef?.current) {
+            resizeObserver.observe(toRef.current);
         }
 
         updatePath();
@@ -144,29 +148,32 @@ export const AnimatedBeam = ({
                 <motion.linearGradient
                     id={id}
                     gradientUnits="userSpaceOnUse"
-                    initial={{
-                        x1: "0%",
-                        x2: "0%",
-                        y1: "0%",
-                        y2: "0%",
-                    }}
-                    animate={{
-                        x1: gradientCoordinates.x1,
-                        x2: gradientCoordinates.x2,
-                        y1: gradientCoordinates.y1,
-                        y2: gradientCoordinates.y2,
-                    }}
+                    animate={
+                        reverse
+                            ? {
+                                x1: ["100%", "0%"],
+                                x2: ["110%", "10%"],
+                                y1: ["0%", "0%"],
+                                y2: ["0%", "0%"],
+                            }
+                            : {
+                                x1: ["0%", "100%"],
+                                x2: ["10%", "110%"],
+                                y1: ["0%", "0%"],
+                                y2: ["0%", "0%"],
+                            }
+                    }
                     transition={{
                         delay,
                         duration,
-                        ease: [0.33, 1, 0.68, 1],
+                        ease: "linear",
                         repeat: Infinity,
                         repeatDelay: 0,
                     }}
                 >
                     <stop stopColor={gradientStartColor} stopOpacity="0" />
-                    <stop stopColor={gradientStartColor} />
-                    <stop offset="32.5%" stopColor={gradientStopColor} />
+                    <stop stopColor={gradientStartColor} stopOpacity="1" />
+                    <stop offset="32.5%" stopColor={gradientStopColor} stopOpacity="1" />
                     <stop offset="100%" stopColor={gradientStopColor} stopOpacity="0" />
                 </motion.linearGradient>
             </defs>

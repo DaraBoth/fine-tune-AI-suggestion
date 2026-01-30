@@ -97,9 +97,15 @@ export default function TrainingTab() {
   const fetchTrainedFiles = useCallback(async () => {
     setLoadingFiles(true)
     try {
-      const response = await fetch('/api/trained-files')
+      const response = await fetch('/api/trained-files', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (response.ok) {
         const data = await response.json()
+        console.log('[TrainingTab] Fetched trained files:', data.files?.length || 0)
         setTrainedFiles(data.files || [])
       }
     } catch (error) {
@@ -746,7 +752,7 @@ export default function TrainingTab() {
                   className="z-20 relative flex h-24 w-24 sm:h-32 sm:w-32 items-center justify-center rounded-full border-2 border-primary/50 bg-black glass-morphism shadow-[0_0_50px_-12px_rgba(59,130,246,0.5)]"
                 >
                   <div className="absolute inset-0 rounded-full animate-pulse bg-primary/10" />
-                  <Image src="/icon.png" alt="AI Brain" width={64} height={64} className="relative z-30 h-12 w-12 sm:h-16 sm:w-16 animate-pulse" />
+                  <Image src="/icon.png" alt="AI Brain" width={120} height={120} className="relative z-30 h-16 w-16 sm:h-20 sm:w-20 animate-pulse object-contain" />
                 </div>
 
                 {/* Dynamical File Nodes */}
@@ -804,12 +810,12 @@ export default function TrainingTab() {
                     fromRef={fileRefs.current[af.id]}
                     toRef={brainRef}
                     reverse={i % 2 !== 0}
-                    pathColor="#3b82f6"
+                    pathColor="rgba(59, 130, 246, 0.4)"
                     pathWidth={3}
                     gradientStartColor={i % 2 === 0 ? "#3b82f6" : "#8b5cf6"}
                     gradientStopColor={i % 2 === 0 ? "#8b5cf6" : "#3b82f6"}
-                    curvature={i % 2 === 0 ? 20 : -20}
-                    duration={2}
+                    curvature={i % 2 === 0 ? 40 : -40} // More pronounced curvature for clear visibility
+                    duration={2.5}
                   />
                 ))}
 
