@@ -373,8 +373,9 @@ export default function ChatInput() {
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Start typing... AI will suggest completions powered by your knowledge base"
-                className="min-h-[120px] sm:min-h-[100px] w-full resize-none rounded-2xl border border-white/10 bg-black/40 px-4 sm:px-6 py-4 sm:py-5 text-sm sm:text-base leading-relaxed text-white caret-blue-400 placeholder:text-white/20 focus:border-blue-500/40 focus:bg-black/60 focus:outline-none transition-all duration-300 shadow-2xl backdrop-blur-md"
+                rows={1}
+                placeholder="Start typing..."
+                className="w-full resize-none rounded-2xl border border-white/10 bg-black/40 px-4 sm:px-6 py-4 text-sm sm:text-base leading-relaxed text-white caret-blue-400 placeholder:text-white/20 focus:border-blue-500/40 focus:bg-black/60 focus:outline-none transition-all duration-300 shadow-2xl backdrop-blur-md min-h-[56px] overflow-hidden"
                 spellCheck={false}
               />
               <div className="absolute inset-0 rounded-2xl pointer-events-none border border-transparent group-focus-within/input:border-blue-500/20 transition-all duration-500" />

@@ -97,10 +97,13 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
  * Get training statistics
  */
 export async function getTrainingStats(): Promise<TrainingStats> {
-  const response = await fetch('/api/training-stats', {
+  const timestamp = new Date().getTime()
+  const response = await fetch(`/api/training-stats?t=${timestamp}`, {
     cache: 'no-store',
     headers: {
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     }
   })
 

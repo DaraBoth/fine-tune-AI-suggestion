@@ -97,15 +97,20 @@ export default function TrainingTab() {
   const fetchTrainedFiles = useCallback(async () => {
     setLoadingFiles(true)
     try {
-      const response = await fetch('/api/trained-files', {
+      // Add timestamp to prevent any caching
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/trained-files?t=${timestamp}`, {
         cache: 'no-store',
         headers: {
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
       })
       if (response.ok) {
         const data = await response.json()
         console.log('[TrainingTab] Fetched trained files:', data.files?.length || 0)
+        console.log('[TrainingTab] Files:', data.files?.map((f: any) => f.filename).join(', '))
         setTrainedFiles(data.files || [])
       }
     } catch (error) {
@@ -561,78 +566,103 @@ export default function TrainingTab() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Training Statistics */}
-      {stats && stats.totalChunks > 0 && (
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-          <Card className="border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden">
-            <BorderBeam size={200} duration={12} delay={0} />
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Total Chunks</p>
-                  <div className="text-xl sm:text-2xl font-bold text-primary">
-                    <NumberTicker key={`chunks-${stats.totalChunks}`} value={loadingStats ? 0 : stats.totalChunks} />
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+        {loadingStats || !stats ? (
+          // Skeleton Loaders
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={`skeleton-${i}`} className="border-white/10 bg-black/40 backdrop-blur-xl relative overflow-hidden h-[88px] sm:h-[116px]">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+              <CardContent className="p-4 sm:p-6 flex flex-col justify-between h-full">
+                <div className="space-y-2">
+                  <div className="h-3 w-20 bg-white/10 rounded animate-pulse" />
+                  <div className="h-6 w-16 bg-white/20 rounded animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl relative overflow-hidden group/stat hover:border-primary/30 transition-colors">
+              <BorderBeam size={200} duration={12} delay={0} />
+              <CardContent className="p-4 sm:p-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/40">Total Chunks</p>
+                    <div className="text-xl sm:text-3xl font-black text-primary drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                      <NumberTicker value={stats.totalChunks} />
+                    </div>
+                  </div>
+                  <Database className="h-6 w-6 sm:h-8 sm:w-8 text-primary/30 group-hover/stat:text-primary/60 transition-colors" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl relative overflow-hidden group/stat hover:border-emerald-500/30 transition-colors">
+              <BorderBeam size={200} duration={12} delay={3} />
+              <CardContent className="p-4 sm:p-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/40">Files Trained</p>
+                    <div className="text-xl sm:text-3xl font-black text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+                      <NumberTicker value={stats.totalFiles} />
+                    </div>
+                  </div>
+                  <FileStack className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-400/30 group-hover/stat:text-emerald-400/60 transition-colors" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl relative overflow-hidden group/stat hover:border-blue-400/30 transition-colors">
+              <BorderBeam size={200} duration={12} delay={6} />
+              <CardContent className="p-4 sm:p-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/40">Knowledge Base</p>
+                    <div className="text-xl sm:text-3xl font-black text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.3)]">
+                      <NumberTicker value={stats.totalCharacters / 1000} decimalPlaces={1} />
+                      <span className="text-sm ml-1 font-bold text-blue-400/60">KB</span>
+                    </div>
+                  </div>
+                  <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400/30 group-hover/stat:text-blue-400/60 transition-colors" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl relative overflow-hidden group/stat hover:border-purple-400/30 transition-all duration-300">
+              <BorderBeam size={200} duration={12} delay={9} />
+              <CardContent className="p-4 sm:p-5 relative z-10">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/40">Last Pulse</p>
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400/40 group-hover/stat:text-purple-400/70 transition-colors" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm sm:text-base font-black text-purple-400">
+                      {stats.lastTrainingDate
+                        ? new Date(stats.lastTrainingDate).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric'
+                        })
+                        : 'NO DATA'
+                      }
+                    </p>
+                    <p className="text-[10px] sm:text-xs font-bold text-white/60">
+                      {stats.lastTrainingDate
+                        ? new Date(stats.lastTrainingDate).toLocaleString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        })
+                        : '--:--'
+                      }
+                    </p>
                   </div>
                 </div>
-                <Database className="h-6 w-6 sm:h-8 sm:w-8 text-primary/50" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden">
-            <BorderBeam size={200} duration={12} delay={3} />
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Files Trained</p>
-                  <div className="text-xl sm:text-2xl font-bold text-emerald-400">
-                    <NumberTicker key={`files-${stats.totalFiles}`} value={loadingStats ? 0 : stats.totalFiles} />
-                  </div>
-                </div>
-                <FileStack className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-400/50" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden">
-            <BorderBeam size={200} duration={12} delay={6} />
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Total Characters</p>
-                  <div className="text-xl sm:text-2xl font-bold text-blue-400">
-                    <NumberTicker key={`chars-${stats.totalCharacters}`} value={loadingStats ? 0 : stats.totalCharacters / 1000} decimalPlaces={1} />K
-                  </div>
-                </div>
-                <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400/50" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden">
-            <BorderBeam size={200} duration={12} delay={9} />
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground">Last Training</p>
-                  <p className="text-xs sm:text-sm font-medium text-purple-400 truncate">
-                    {stats.lastTrainingDate
-                      ? new Date(stats.lastTrainingDate).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })
-                      : 'N/A'
-                    }
-                  </p>
-                </div>
-                <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-purple-400/50 flex-shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
 
       <Card className="border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden">
         <BorderBeam size={250} duration={15} delay={0} />
