@@ -231,52 +231,59 @@ function generatePhraseSuggestionFromContent(userInput: string, matchedContent: 
     }
   }
 
-  // Strategy 2: Semantic matching - if content contains similar concepts
-  // Look for the input within the content and extract continuation
-  const contentWords = content.toLowerCase().split(/\s+/)
-  const inputWordsLower = inputWords.map(w => w.toLowerCase())
+  // Strategy 2: Stricter pattern matching
+  // Ensure the query matches the content, and return subsequent text
+  // Prioritize matches that align with the end of the query
+  const searchLower = input.toLowerCase()
+  const contentLower = content.toLowerCase()
 
-  // Find where the input context appears in content
-  for (let i = 0; i < contentWords.length - inputWords.length; i++) {
-    const matchCount = inputWordsLower.filter((word, idx) =>
-      contentWords[i + idx] === word
-    ).length
+  let index = contentLower.indexOf(searchLower)
 
-    // If we have a good match (50%+ words match)
-    if (matchCount >= Math.max(2, inputWords.length * 0.5)) {
-      const startIdx = content.toLowerCase().indexOf(contentWords.slice(i, i + inputWords.length).join(' '))
-      if (startIdx !== -1) {
-        const continuation = content.substring(startIdx + input.length).trim()
-        const cleaned = continuation.replace(/^[.,;:!?]\s*/, '')
-        const words = cleaned.split(/\s+/).slice(0, 15).join(' ')
-        if (words.length > 3) {
-          return words
+  if (index !== -1) {
+    // Found the exact phrase
+    const afterIndex = index + input.length
+    const continuation = content.substring(afterIndex).trim()
+
+    // Clean up punctuation
+    const cleaned = continuation.replace(/^[.,;:!?]\s*/, '')
+
+    if (cleaned.length > 1) {
+      // Return reasonable length continuation
+      const words = cleaned.split(/\s+/)
+      const maxWords = 15
+      let result = words.slice(0, maxWords).join(' ')
+
+      const sentenceEnd = result.match(/^[^.!?]*[.!?]/)
+      if (sentenceEnd) {
+        result = sentenceEnd[0]
+      }
+
+      return result
+    }
+  }
+
+  // Strategy 3: Fallback - use last word if it's unique enough (only if input is multi-word)
+  if (inputWords.length > 1 && lastWord.length > 2) {
+    const lastWordLower = lastWord.toLowerCase()
+    index = contentLower.indexOf(lastWordLower)
+
+    if (index !== -1) {
+      // Check if this recurrence of lastWord is actually a continuation of our input
+      // This effectively checks: does matchedContent contain "PreviousWord LastWord"?
+      const prevWord = inputWords[inputWords.length - 2].toLowerCase()
+      const checkContext = prevWord + " " + lastWordLower
+
+      if (contentLower.includes(checkContext)) {
+        const afterIndex = contentLower.indexOf(checkContext) + checkContext.length
+        let continuation = content.substring(afterIndex).trim()
+        continuation = continuation.replace(/^[.,;:!?]\s*/, '')
+        if (continuation.length > 1) {
+          const words = continuation.split(/\s+/)
+          return words.slice(0, 10).join(' ')
         }
       }
     }
   }
 
-  // Strategy 3: Pattern-based prediction
-  // If content represents a common phrase pattern that extends user input
-  if (content.length > input.length && content.toLowerCase().startsWith(input.toLowerCase())) {
-    const continuation = content.substring(input.length).trim()
-    const cleaned = continuation.replace(/^[.,;:!?]\s*/, '')
-    const words = cleaned.split(/\s+/).slice(0, 15).join(' ')
-    if (words.length > 3) {
-      return words
-    }
-  }
-
-  // Strategy 4: Return short relevant phrases from content
-  // If content is a complete, relevant phrase that could follow the input
-  if (content.length < 100 && content.length > 5) {
-    // Check if it could be a natural continuation (doesn't repeat the input)
-    if (!content.toLowerCase().includes(input.toLowerCase()) ||
-      content.toLowerCase().indexOf(input.toLowerCase()) > 5) {
-      return content
-    }
-  }
-
-  // No good match found
   return ''
 }

@@ -15,6 +15,29 @@ import { Particles } from '@/components/ui/particles'
 import { Meteors } from '@/components/ui/meteors'
 import { completeWord, suggestPhrase, learnFromAcceptedSuggestion, Suggestion } from '@/services'
 
+/**
+ * Calculates the overlap between the end of the input and the start of the suggestion.
+ * Returns the length of the overlapping characters.
+ */
+function calculateOverlap(input: string, suggestion: string): number {
+  const normalizedInput = input.toLowerCase()
+  const normalizedSuggestion = suggestion.toLowerCase()
+
+  // Check for overlap starting from the longest possible match
+  const maxOverlap = Math.min(input.length, suggestion.length)
+
+  for (let i = maxOverlap; i > 0; i--) {
+    const suffix = normalizedInput.substring(input.length - i)
+    const prefix = normalizedSuggestion.substring(0, i)
+
+    if (suffix === prefix) {
+      return i
+    }
+  }
+
+  return 0
+}
+
 export default function ChatInput() {
   // Get state and actions from store
   const inputValue = useAppStore((state) => state.autocompleteInput)
@@ -239,17 +262,23 @@ export default function ChatInput() {
     // Use suggestionType if provided, otherwise fallback to analysis
     const type = suggestionType || analysis.type
 
-    if (type === 'word' && analysis.incompleteWord) {
-      // For word completion: append the completion to the incomplete word
-      // suggestionText should be just the completion part (e.g., "인" not "확인")
-      completedText = inputValue + suggestionText
-    } else if (type === 'phrase') {
-      // For phrase suggestion: append with space if needed
-      const needsSpace = !inputValue.endsWith(' ') && suggestionText.length > 0
-      completedText = inputValue + (needsSpace ? ' ' : '') + suggestionText
+    // Check for overlap to prevent duplication
+    const overlapLen = calculateOverlap(inputValue, suggestionText)
+
+    // If we found a meaningful overlap (and it's not just a single space match unless context implies it)
+    if (overlapLen > 0) {
+      // Use the overlapped version
+      completedText = inputValue + suggestionText.substring(overlapLen)
     } else {
-      // Fallback: append with space
-      completedText = inputValue.trimEnd() + ' ' + suggestionText
+      // Standard fallback logic if no overlap found
+      if (type === 'word' && analysis.incompleteWord) {
+        completedText = inputValue + suggestionText
+      } else if (type === 'phrase') {
+        const needsSpace = !inputValue.endsWith(' ') && suggestionText.length > 0
+        completedText = inputValue + (needsSpace ? ' ' : '') + suggestionText
+      } else {
+        completedText = inputValue.trimEnd() + ' ' + suggestionText
+      }
     }
 
     // Check if this suggestion came from AI (not from trained data)
@@ -449,25 +478,39 @@ export default function ChatInput() {
                             )}
                             <div className="leading-tight">
                               {(() => {
-                                const analysis = analyzeInputState(inputValue)
-                                const type = sug.suggestionType || analysis.type
+                                // Calculate overlap for visual deduplication
+                                const overlapLen = calculateOverlap(inputValue, sug.text)
 
-                                if (type === 'word' && analysis.incompleteWord) {
+                                if (overlapLen > 0) {
+                                  // Suggestion overlaps with input - only show new part in blue
+                                  const uniquePart = sug.text.substring(overlapLen)
                                   return (
                                     <>
                                       <span className="text-white/40">{inputValue}</span>
-                                      <span className="text-blue-400 font-bold">{sug.text}</span>
+                                      <span className="text-blue-400 font-bold">{uniquePart}</span>
                                     </>
                                   )
                                 } else {
-                                  const needsSpace = !inputValue.endsWith(' ') && sug.text.length > 0
-                                  return (
-                                    <>
-                                      <span className="text-white/40">{inputValue}</span>
-                                      {needsSpace && <span className="text-white/40"> </span>}
-                                      <span className="text-blue-400 font-bold">{sug.text}</span>
-                                    </>
-                                  )
+                                  const analysis = analyzeInputState(inputValue)
+                                  const type = sug.suggestionType || analysis.type
+
+                                  if (type === 'word' && analysis.incompleteWord) {
+                                    return (
+                                      <>
+                                        <span className="text-white/40">{inputValue}</span>
+                                        <span className="text-blue-400 font-bold">{sug.text}</span>
+                                      </>
+                                    )
+                                  } else {
+                                    const needsSpace = !inputValue.endsWith(' ') && sug.text.length > 0
+                                    return (
+                                      <>
+                                        <span className="text-white/40">{inputValue}</span>
+                                        {needsSpace && <span className="text-white/40"> </span>}
+                                        <span className="text-blue-400 font-bold">{sug.text}</span>
+                                      </>
+                                    )
+                                  }
                                 }
                               })()}
                             </div>
