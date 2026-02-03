@@ -57,7 +57,7 @@ export default function ChatInput() {
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const debounceTimerRef = useRef<NodeJS.Timeout>()
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const suggestionCacheRef = useRef<Map<string, Suggestion[]>>(new Map())
 
   // Auto-expand textarea based on content
