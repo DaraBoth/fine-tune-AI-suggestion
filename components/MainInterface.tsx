@@ -38,6 +38,16 @@ export default function MainInterface() {
         {/* Quick Links */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <a
+            href="/docs"
+            className="group flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-5 py-2.5 backdrop-blur-xl transition-all hover:border-blue-500/40 hover:bg-blue-500/20 hover:scale-105"
+          >
+            <BookOpen className="h-4 w-4 text-blue-400 transition-colors group-hover:text-blue-300" />
+            <span className="text-sm font-medium text-blue-400 transition-colors group-hover:text-blue-300">
+              API Docs
+            </span>
+          </a>
+
+          <a
             href="https://github.com/DaraBoth/fine-tune-AI-suggestion"
             target="_blank"
             rel="noopener noreferrer"
