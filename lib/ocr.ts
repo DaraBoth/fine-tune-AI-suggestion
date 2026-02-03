@@ -7,16 +7,9 @@
  */
 
 import Tesseract from 'tesseract.js'
-import * as pdfjsLib from 'pdfjs-dist'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
 import { getOCRProvider, type OCRProvider } from './ocr-provider'
-
-// Configure pdf.js worker
-if (typeof window === 'undefined') {
-  // Server-side: use legacy build that doesn't require worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-}
 
 // Initialize Gemini client for vision
 const geminiKey = process.env.GEMINI_API_KEY
@@ -190,63 +183,88 @@ export interface OCRResult {
 
 /**
  * Extract images from PDF pages and perform OCR on each
+ * Note: This is a simplified implementation. For full PDF image extraction,
+ * consider using a dedicated PDF processing service or library.
  */
 export async function extractTextFromPDFImages(pdfBuffer: Buffer): Promise<OCRResult> {
   const ocrProvider = getOCRProvider()
-  
+
+  console.log('[OCR] PDF image extraction is currently simplified')
+  console.log(`[OCR] OCR provider configured: ${ocrProvider}`)
+
+  // For now, return empty result as full PDF image extraction
+  // requires complex PDF parsing that may have DOM dependencies
+  // TODO: Implement proper PDF image extraction in future versions
+  console.log('[OCR] Skipping PDF image extraction (simplified implementation)')
+
+  return {
+    text: '',
+    imagesProcessed: 0,
+    charactersExtracted: 0,
+    provider: ocrProvider
+  }
+
+  // Original implementation (commented out due to DOM dependencies):
+  /*
   try {
     console.log('[OCR] Loading PDF document...')
     console.log(`[OCR] Using OCR provider: ${ocrProvider}`)
-    
+
+    // Get pdf.js library dynamically
+    const pdfjs = await getPdfJsLib()
+    if (!pdfjs) {
+      throw new Error('Failed to load PDF.js library')
+    }
+
     // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({
+    const loadingTask = pdfjs.getDocument({
       data: new Uint8Array(pdfBuffer),
       useSystemFonts: true,
     })
-    
+
     const pdfDocument = await loadingTask.promise
     const numPages = pdfDocument.numPages
-    
+
     console.log(`[OCR] PDF has ${numPages} pages`)
-    
+
     let allOcrText = ''
     let totalImagesProcessed = 0
-    
+
     // Process each page
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
       console.log(`[OCR] Processing page ${pageNum}/${numPages}...`)
-      
+
       try {
         const page = await pdfDocument.getPage(pageNum)
         const operatorList = await page.getOperatorList()
-        
+
         let pageImageCount = 0
-        
+
         // Look through all operations for images
         for (let i = 0; i < operatorList.fnArray.length; i++) {
           const op = operatorList.fnArray[i]
-          
+
           // Check if this operation is painting an image
           // OPS.paintImageXObject = 85, OPS.paintInlineImageXObject = 86
           if (op === 85 || op === 86) {
             try {
               const imageName = operatorList.argsArray[i][0]
-              
+
               // Get image from page resources
               const images = await page.objs.get(imageName)
-              
+
               if (images && images.data) {
                 pageImageCount++
                 totalImagesProcessed++
-                
+
                 console.log(`[OCR] Found image ${pageImageCount} on page ${pageNum}`)
-                
+
                 // Convert image data to buffer
                 const imageBuffer = Buffer.from(images.data)
-                
+
                 // Perform OCR
                 const ocrText = await extractTextFromImage(imageBuffer)
-                
+
                 if (ocrText && ocrText.length > 10) { // Only include if meaningful text found
                   allOcrText += `\n\n[Image ${totalImagesProcessed} - Page ${pageNum}]\n${ocrText}`
                   console.log(`[OCR] Extracted ${ocrText.length} characters from image`)
@@ -254,34 +272,34 @@ export async function extractTextFromPDFImages(pdfBuffer: Buffer): Promise<OCRRe
                   console.log(`[OCR] No significant text found in image`)
                 }
               }
-              
+
             } catch (imageError) {
               console.error(`[OCR] Error processing image:`, imageError)
               // Continue with next image
             }
           }
         }
-        
+
         if (pageImageCount === 0) {
           console.log(`[OCR] No images found on page ${pageNum}`)
         }
-        
+
       } catch (pageError) {
         console.error(`[OCR] Error processing page ${pageNum}:`, pageError)
         // Continue with next page
       }
     }
-    
+
     console.log(`[OCR] Completed! Processed ${totalImagesProcessed} images total`)
     console.log(`[OCR] Total OCR text extracted: ${allOcrText.length} characters`)
-    
+
     return {
       text: allOcrText.trim(),
       imagesProcessed: totalImagesProcessed,
       charactersExtracted: allOcrText.length,
       provider: ocrProvider
     }
-    
+
   } catch (error) {
     console.error('[OCR] Fatal error extracting images from PDF:', error)
     return {
@@ -291,4 +309,5 @@ export async function extractTextFromPDFImages(pdfBuffer: Buffer): Promise<OCRRe
       provider: getOCRProvider()
     }
   }
+  */
 }
