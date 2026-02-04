@@ -44,7 +44,7 @@ A cutting-edge Next.js application featuring AI-powered autocomplete with Retrie
 - **Toast Notifications**: Beautiful stacking toasts with loading states for file operations
 
 ### 📊 Training & Analytics
-- **PDF & Text Training**: Upload PDF files or train directly from input text
+- **PDF & Text Training**: Upload PDF files (up to 50MB each) or train directly from input text
 - **OCR Support**: Automatic text extraction from images in PDFs (scanned documents, screenshots, diagrams)
 - **Consolidated Manual Training**: All text-based training saved to single file
 - **File Management**: Multi-select delete with confirmation and toast notifications
@@ -260,7 +260,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 #### Method 1: Upload PDF Files
 1. Click on the **Train Your AI** tab
-2. Drag and drop PDF files or click to browse
+2. Drag and drop PDF files or click to browse (up to 50MB each)
 3. The system will:
    - Extract text from the PDF using pdf-parse
    - Split into manageable chunks (1000 chars with 200 char overlap)

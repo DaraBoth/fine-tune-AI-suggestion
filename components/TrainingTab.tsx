@@ -420,10 +420,29 @@ export default function TrainingTab() {
     }
   }, [uploadStatus.status, fetchStats, fetchTrainedFiles])
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[], rejectedFiles: any[]) => {
+    // Handle rejected files (too large, wrong type, etc.)
+    if (rejectedFiles.length > 0) {
+      const errors = rejectedFiles.map(rejection => {
+        if (rejection.errors.some((error: any) => error.code === 'file-too-large')) {
+          return `${rejection.file.name}: File size exceeds 50MB limit`
+        }
+        if (rejection.errors.some((error: any) => error.code === 'file-invalid-type')) {
+          return `${rejection.file.name}: Only PDF files are allowed`
+        }
+        return `${rejection.file.name}: File rejected`
+      })
+
+      setUploadStatus({
+        status: 'error',
+        message: errors.join('\n'),
+      })
+      return
+    }
+
     if (acceptedFiles.length === 0) return
 
-    // Filter only PDF files
+    // Filter only PDF files (additional check)
     const pdfFiles = acceptedFiles.filter(file => file.type === 'application/pdf')
 
     if (pdfFiles.length === 0) {
@@ -500,10 +519,10 @@ export default function TrainingTab() {
           ))
 
           // Show success toast with processing details
-          const ocrInfo = data.ocr?.imagesProcessed > 0 
+          const ocrInfo = data.ocr?.imagesProcessed > 0
             ? ` (+ ${data.ocr.imagesProcessed} images via ${data.ocr.provider.toUpperCase()} OCR)`
             : ''
-          
+
           toast.success('File Trained Successfully', {
             description: `${file.name}: ${data.chunks} chunks processed in ${Math.round((data.processingTime || 0) / 1000)}s${ocrInfo}`,
           })
@@ -558,6 +577,7 @@ export default function TrainingTab() {
     },
     multiple: true, // Enable multiple file upload
     disabled: uploadStatus.status === 'uploading',
+    maxSize: 50 * 1024 * 1024, // 50MB limit
   })
 
   const resetUpload = () => {
@@ -576,7 +596,7 @@ export default function TrainingTab() {
         <AIProviderBadge />
         <OCRProviderBadge />
       </div>
-      
+
       {/* Training Statistics */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {loadingStats || !stats ? (
