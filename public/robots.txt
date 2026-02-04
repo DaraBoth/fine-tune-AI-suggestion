@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Block access to API routes (optional - remove if you want APIs indexed)
+Disallow: /api/
+
+# Block access to admin/debug routes
+Disallow: /_next/
+Disallow: /admin
+Disallow: /debug
+
+# Allow access to static assets
+Allow: /icon.png
+Allow: /api-example.html
+
+# Sitemap
+Sitemap: https://your-domain.com/sitemap.xml

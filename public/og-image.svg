@@ -1,0 +1,49 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="text" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a1a1aa;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="logo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="25%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Logo -->
+  <rect x="540" y="150" width="120" height="120" rx="24" fill="url(#logo)"/>
+  <text x="600" y="225" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white">🤖</text>
+
+  <!-- Title -->
+  <text x="600" y="350" text-anchor="middle" font-family="Arial, sans-serif" font-size="64" font-weight="900" fill="url(#text)">TypeFlow AI</text>
+
+  <!-- Tagline -->
+  <text x="600" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" fill="#a1a1aa">Intelligent Autocomplete with RAG Architecture</text>
+
+  <!-- Features -->
+  <g transform="translate(400, 480)">
+    <circle cx="0" cy="0" r="30" fill="#3b82f6" opacity="0.2"/>
+    <text x="0" y="-40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#71717a">📄</text>
+    <text x="0" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#a1a1aa">PDF Training</text>
+  </g>
+
+  <g transform="translate(600, 480)">
+    <circle cx="0" cy="0" r="30" fill="#8b5cf6" opacity="0.2"/>
+    <text x="0" y="-40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#71717a">🧠</text>
+    <text x="0" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#a1a1aa">AI Powered</text>
+  </g>
+
+  <g transform="translate(800, 480)">
+    <circle cx="0" cy="0" r="30" fill="#06b6d4" opacity="0.2"/>
+    <text x="0" y="-40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#71717a">⚡</text>
+    <text x="0" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#a1a1aa">Real-time</text>
+  </g>
+</svg>
